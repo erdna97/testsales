@@ -78,9 +78,9 @@
         
         <header class="text-center mb-8 relative">
             <h1 class="text-3xl md:text-4xl font-bold text-slate-800">Portal Laporan Penjualan</h1>
-            <div id="auth-controls" class="absolute top-0 right-0">
-                <button id="admin-login-btn" class="bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors text-sm">Login Admin</button>
-                <button id="admin-logout-btn" class="hidden bg-red-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-600 transition-colors text-sm">Logout</button>
+            <div id="auth-container" class="absolute top-0 right-0">
+                <button id="login-btn" class="bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors text-sm">Login</button>
+                <button id="logout-btn" class="hidden bg-red-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-600 transition-colors text-sm">Logout</button>
             </div>
         </header>
 
@@ -105,7 +105,7 @@
             </div>
         </div>
         
-        <!-- Filter Periode (Visible to all) -->
+        <!-- Filter Periode (Visible to all logged in users) -->
         <div id="filter-container" class="hidden bg-white p-4 rounded-xl shadow-lg mb-8 flex flex-col md:flex-row items-center justify-center gap-4">
             <h3 class="text-lg font-semibold text-slate-700 mr-4">Tampilkan Laporan Untuk Periode:</h3>
             <div>
@@ -134,7 +134,7 @@
              </div>
         </div>
 
-        <!-- VERIFIKASI BONUS (Visible to all) -->
+        <!-- VERIFIKASI BONUS (Guest and Admin) -->
         <div id="bonus-verification-container" class="hidden mt-8">
             <h2 id="report-title-3" class="text-2xl font-semibold text-slate-700 mb-4 text-center"></h2>
             <div class="bg-white p-6 rounded-xl shadow-lg max-w-lg mx-auto space-y-4">
@@ -157,8 +157,20 @@
             <div id="bonus-claim-report" class="bg-white p-6 md:p-8 rounded-xl shadow-lg max-w-4xl mx-auto"></div>
         </div>
 
-        <!-- LOGIN MODAL -->
-        <div id="login-modal" class="fixed inset-0 bg-black bg-opacity-60 modal-overlay flex justify-center items-center p-4 hidden">
+        <!-- ROLE SELECTION MODAL -->
+        <div id="role-select-modal" class="fixed inset-0 bg-black bg-opacity-60 modal-overlay flex justify-center items-center p-4 hidden">
+            <div class="bg-white rounded-lg shadow-2xl p-8 w-full max-w-xs text-center">
+                <h2 class="text-2xl font-bold text-slate-800 mb-6">Login Sebagai</h2>
+                <div class="space-y-4">
+                    <button id="guest-login-btn" class="w-full bg-teal-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-teal-600 transition-colors">Tamu</button>
+                    <button id="admin-prompt-btn" class="w-full bg-indigo-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-indigo-700 transition-colors">Admin</button>
+                </div>
+                 <button id="role-close-btn" class="mt-6 text-sm text-gray-500 hover:text-gray-700">Batal</button>
+            </div>
+        </div>
+        
+        <!-- ADMIN LOGIN MODAL -->
+        <div id="admin-login-modal" class="fixed inset-0 bg-black bg-opacity-60 modal-overlay flex justify-center items-center p-4 hidden">
             <div class="bg-white rounded-lg shadow-2xl p-8 w-full max-w-sm space-y-4">
                 <h2 class="text-2xl font-bold text-slate-800 text-center">Login Admin</h2>
                 <div>
@@ -171,8 +183,8 @@
                 </div>
                 <p id="login-error" class="text-red-500 text-sm h-4 text-center"></p>
                 <div class="flex gap-4">
-                    <button id="login-submit-btn" class="w-full bg-indigo-600 text-white font-semibold py-2 px-5 rounded-lg hover:bg-indigo-700 transition-colors">Login</button>
-                    <button id="login-close-btn" class="w-full bg-gray-200 text-gray-700 font-semibold py-2 px-5 rounded-lg hover:bg-gray-300 transition-colors">Batal</button>
+                    <button id="admin-submit-btn" class="w-full bg-indigo-600 text-white font-semibold py-2 px-5 rounded-lg hover:bg-indigo-700 transition-colors">Login</button>
+                    <button id="admin-close-btn" class="w-full bg-gray-200 text-gray-700 font-semibold py-2 px-5 rounded-lg hover:bg-gray-300 transition-colors">Kembali</button>
                 </div>
             </div>
         </div>
@@ -207,25 +219,31 @@
         const startDateFilter = document.getElementById('start-date-filter');
         const endDateFilter = document.getElementById('end-date-filter');
         const adminViewContainer = document.getElementById('admin-view-container');
+        
         const authControls = {
-            loginBtn: document.getElementById('admin-login-btn'),
-            logoutBtn: document.getElementById('admin-logout-btn')
+            loginBtn: document.getElementById('login-btn'),
+            logoutBtn: document.getElementById('logout-btn')
         };
-        const loginModal = {
-            container: document.getElementById('login-modal'),
+        const roleSelectModal = {
+            container: document.getElementById('role-select-modal'),
+            guestBtn: document.getElementById('guest-login-btn'),
+            adminPromptBtn: document.getElementById('admin-prompt-btn'),
+            closeBtn: document.getElementById('role-close-btn')
+        };
+        const adminLoginModal = {
+            container: document.getElementById('admin-login-modal'),
             usernameInput: document.getElementById('admin-username-input'),
             passwordInput: document.getElementById('admin-password-input'),
-            submitBtn: document.getElementById('login-submit-btn'),
-            closeBtn: document.getElementById('login-close-btn'),
+            submitBtn: document.getElementById('admin-submit-btn'),
+            closeBtn: document.getElementById('admin-close-btn'),
             error: document.getElementById('login-error')
         };
         
         // Global state
         let fullData = []; 
         let finalBonusData = null;
-        let db, auth;
-        let isAdminLoggedIn = false;
-        let unsubscribeFromData; // To store the real-time listener
+        let db;
+        let unsubscribeFromData;
 
         // Admin Credentials
         const ADMIN_USERNAME = "andre";
@@ -259,49 +277,72 @@
 
         // --- LOCAL AUTH & UI VISIBILITY ---
         function updateUIVisibility() {
-            // Check admin status from localStorage
-            isAdminLoggedIn = localStorage.getItem('isAdminLoggedIn') === 'true';
+            const userRole = localStorage.getItem('userRole');
 
-            if (isAdminLoggedIn) {
-                adminViewContainer.classList.remove('hidden');
+            // Hide everything by default
+            [adminViewContainer, resultContainer, omsetReportContainer, bonusVerificationContainer, filterContainer, authControls.logoutBtn].forEach(el => el.classList.add('hidden'));
+            authControls.loginBtn.classList.remove('hidden');
+
+            if (userRole === 'admin') {
                 authControls.loginBtn.classList.add('hidden');
                 authControls.logoutBtn.classList.remove('hidden');
-            } else {
-                adminViewContainer.classList.add('hidden');
-                authControls.loginBtn.classList.remove('hidden');
-                authControls.logoutBtn.classList.add('hidden');
-                resultContainer.classList.add('hidden');
-                omsetReportContainer.classList.add('hidden');
+                adminViewContainer.classList.remove('hidden');
+                filterContainer.classList.remove('hidden');
+                bonusVerificationContainer.classList.remove('hidden');
+                // Admin-specific reports are shown inside runAllReports
+            } else if (userRole === 'guest') {
+                authControls.loginBtn.classList.add('hidden');
+                authControls.logoutBtn.classList.remove('hidden');
+                filterContainer.classList.remove('hidden');
+                bonusVerificationContainer.classList.remove('hidden');
             }
+
             if (fullData.length > 0) {
                  runAllReports();
             }
         }
 
         authControls.loginBtn.addEventListener('click', () => {
-            loginModal.usernameInput.value = '';
-            loginModal.passwordInput.value = '';
-            loginModal.error.textContent = '';
-            loginModal.container.classList.remove('hidden')
+            roleSelectModal.container.classList.remove('hidden');
+        });
+        
+        roleSelectModal.closeBtn.addEventListener('click', () => {
+            roleSelectModal.container.classList.add('hidden');
         });
 
-        loginModal.closeBtn.addEventListener('click', () => loginModal.container.classList.add('hidden'));
-        
         authControls.logoutBtn.addEventListener('click', () => {
-            localStorage.removeItem('isAdminLoggedIn');
+            localStorage.removeItem('userRole');
             updateUIVisibility();
         });
 
-        loginModal.submitBtn.addEventListener('click', () => {
-            const username = loginModal.usernameInput.value;
-            const password = loginModal.passwordInput.value;
+        roleSelectModal.guestBtn.addEventListener('click', () => {
+            localStorage.setItem('userRole', 'guest');
+            roleSelectModal.container.classList.add('hidden');
+            updateUIVisibility();
+        });
+
+        roleSelectModal.adminPromptBtn.addEventListener('click', () => {
+            roleSelectModal.container.classList.add('hidden');
+            adminLoginModal.usernameInput.value = '';
+            adminLoginModal.passwordInput.value = '';
+            adminLoginModal.error.textContent = '';
+            adminLoginModal.container.classList.remove('hidden');
+        });
+        
+        adminLoginModal.closeBtn.addEventListener('click', () => {
+            adminLoginModal.container.classList.add('hidden');
+        });
+
+        adminLoginModal.submitBtn.addEventListener('click', () => {
+            const username = adminLoginModal.usernameInput.value;
+            const password = adminLoginModal.passwordInput.value;
             
             if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
-                localStorage.setItem('isAdminLoggedIn', 'true');
+                localStorage.setItem('userRole', 'admin');
+                adminLoginModal.container.classList.add('hidden');
                 updateUIVisibility();
-                loginModal.container.classList.add('hidden');
             } else {
-                loginModal.error.textContent = "Username atau password salah.";
+                adminLoginModal.error.textContent = "Username atau password salah.";
             }
         });
 
@@ -321,9 +362,8 @@
 
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
-                auth = getAuth(app); // Still needed for anonymous sign-in
+                const auth = getAuth(app);
                 
-                // Sign in anonymously in the background to get read/write permissions
                 try {
                      const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
                     if (initialAuthToken) {
@@ -331,7 +371,6 @@
                     } else {
                         await signInAnonymously(auth);
                     }
-                    // Once signed in, we can listen for data
                     listenForDataChanges();
                 } catch (e) {
                      console.error("Anonymous sign-in error:", e);
@@ -350,8 +389,6 @@
                         showError("Gagal menyambung sebagai tamu. Tampilan mungkin terbatas.");
                     }
                 }
-
-                // Finally, check local login state and update UI
                 updateUIVisibility();
 
             } catch (e) { 
@@ -370,7 +407,7 @@
             }
 
             unsubscribeFromData = onSnapshot(dataRef, (docSnap) => {
-                hideError(); // Hide previous errors if data is successfully received
+                hideError(); 
                 if (docSnap.exists() && docSnap.data().rawText) {
                     showStatus("Data terbaru diterima!", true);
                     const rawText = docSnap.data().rawText;
@@ -392,7 +429,8 @@
         }
 
         async function saveDataToFirestore() {
-            if (!isAdminLoggedIn) { 
+            const userRole = localStorage.getItem('userRole');
+            if (userRole !== 'admin') { 
                 showError("Operasi ini hanya untuk admin. Silakan login terlebih dahulu."); 
                 return; 
             }
@@ -442,8 +480,11 @@
                        setupDateFilters();
                     }
                     runAllReports(); 
-                    filterContainer.classList.remove('hidden');
-                    bonusVerificationContainer.classList.remove('hidden');
+                    const userRole = localStorage.getItem('userRole');
+                    if (userRole) { // if guest or admin
+                        filterContainer.classList.remove('hidden');
+                        bonusVerificationContainer.classList.remove('hidden');
+                    }
                 } else {
                     filterContainer.classList.add('hidden');
                     bonusVerificationContainer.classList.add('hidden');
@@ -465,6 +506,7 @@
             endDate.setHours(23,59,59,999);
 
             const filteredData = fullData.filter(row => row.date >= startDate && row.date <= endDate);
+            const userRole = localStorage.getItem('userRole');
 
             if (filteredData.length === 0) {
                 resultContainer.classList.add('hidden');
@@ -483,7 +525,7 @@
             document.getElementById('report-title-2').textContent = `Laporan Omset - ${periodTitle}`;
             document.getElementById('report-title-3').textContent = `Verifikasi Bonus - ${periodTitle}`;
             
-            if (isAdminLoggedIn) {
+            if (userRole === 'admin') {
                 renderResultTable(processed.pivotData, processed.salesList, processed.productList);
                 renderOmsetReport(aggregatedOmsetData, processed.salesList);
                 resultContainer.classList.remove('hidden');
@@ -494,8 +536,6 @@
             }
 
             setupBonusVerification(processed.salesList);
-            bonusVerificationContainer.classList.remove('hidden');
-            bonusClaimContainer.classList.add('hidden');
         }
 
         processBtn.addEventListener('click', () => processRawData(rawDataInput.value.trim()));
@@ -572,6 +612,8 @@
         
         let adminBonusChangeListener = null;
         function setupBonusVerification(salesList) {
+            const userRole = localStorage.getItem('userRole');
+
             if (salesList.length > 0) {
                  bonusSalesSelect.innerHTML = salesList.map(s => `<option value="${s}">${s}</option>`).join('');
             } else {
@@ -584,7 +626,7 @@
                 bonusSalesSelect.removeEventListener('change', adminBonusChangeListener);
             }
 
-            if (isAdminLoggedIn) {
+            if (userRole === 'admin') {
                 verificationCodeWrapper.classList.add('hidden');
                 verifyBonusBtn.classList.add('hidden');
 
@@ -845,4 +887,4 @@
         initializeFirebase();
     </script>
 </body>
-</html>
+</ht
