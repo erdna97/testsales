@@ -289,14 +289,19 @@
                 adminViewContainer.classList.remove('hidden');
                 filterContainer.classList.remove('hidden');
                 bonusVerificationContainer.classList.remove('hidden');
-                // Admin-specific reports are shown inside runAllReports
             } else if (userRole === 'guest') {
                 authControls.loginBtn.classList.add('hidden');
                 authControls.logoutBtn.classList.remove('hidden');
                 filterContainer.classList.remove('hidden');
                 bonusVerificationContainer.classList.remove('hidden');
+            } else {
+                // If no role, just show the login button
+                 authControls.loginBtn.classList.remove('hidden');
+                 authControls.logoutBtn.classList.add('hidden');
             }
 
+            // This function might be called before data is loaded.
+            // The actual display of reports happens in runAllReports.
             if (fullData.length > 0) {
                  runAllReports();
             }
@@ -417,6 +422,7 @@
                     processRawData(rawText);
                 } else {
                     statusIndicator.textContent = "Data di cloud kosong. Admin perlu mengunggah data.";
+                    processRawData(''); // Process empty data to clear the view
                 }
             }, (error) => {
                 console.error("Error listening to data:", error);
@@ -466,6 +472,8 @@
                     bonusVerificationContainer.classList.add('hidden');
                     resultContainer.classList.add('hidden');
                     omsetReportContainer.classList.add('hidden');
+                    // Ensure login button is shown if there's no data and user is logged out
+                    updateUIVisibility(); 
                     return;
                 }
                 const { headers, data, dateIndex } = parseData(rawText);
@@ -476,18 +484,19 @@
                 fullData.forEach(row => { row.indices = indices; }); 
                 
                 if (fullData.length > 0) {
+                    // **FIX**: Always show the default view containers as soon as data is loaded.
                     if (filterContainer.classList.contains('hidden')) {
                        setupDateFilters();
                     }
-                    runAllReports(); 
-                    const userRole = localStorage.getItem('userRole');
-                    if (userRole) { // if guest or admin
-                        filterContainer.classList.remove('hidden');
-                        bonusVerificationContainer.classList.remove('hidden');
-                    }
+                    filterContainer.classList.remove('hidden');
+                    bonusVerificationContainer.classList.remove('hidden');
+                    
+                    // Now, determine which specific view (guest/admin) to show
+                    updateUIVisibility(); 
                 } else {
                     filterContainer.classList.add('hidden');
                     bonusVerificationContainer.classList.add('hidden');
+                    updateUIVisibility(); 
                 }
 
             } catch (e) { 
