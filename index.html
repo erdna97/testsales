@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portal Laporan & Bonus Sales</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8;
+        }
+        .table-cell {
+            padding: 12px 16px;
+            border-bottom: 1px solid #e2e8f0;
+            text-align: right;
+            white-space: nowrap;
+        }
+        .header-cell {
+            padding: 12px 16px;
+            background-color: #f8fafc;
+            font-weight: 600;
+            color: #475569;
+            text-align: center;
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        .item-cell {
+            text-align: left;
+            font-weight: 500;
+            color: #1e293b;
+        }
+        .data-row:nth-child(even) {
+            background-color: #f8fafc;
+        }
+        .data-row:hover {
+            background-color: #eff6ff;
+        }
+        .grand-total-row {
+            border-top: 2px solid #94a3b8;
+        }
+        .grand-total-row > td {
+            background-color: #e2e8f0;
+            font-weight: 700;
+            color: #0f172a;
+            font-size: 1.05em;
+        }
+        .sticky-col {
+            position: sticky;
+            left: 0;
+            z-index: 10;
+            background-color: #fff;
+            border-right: 1px solid #e2e8f0;
+        }
+        .data-row:nth-child(even) .sticky-col {
+            background-color: #f8fafc;
+        }
+        .data-row:hover .sticky-col {
+            background-color: #eff6ff;
+        }
+        .grand-total-row .sticky-col {
+            background-color: #e2e8f0;
+        }
+        .header-cell.sticky-col {
+            z-index: 30;
+        }
+        .modal-overlay {
+            transition: opacity 0.3s ease;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <div class="container mx-auto p-4 md:p-8">
+        
+        <header class="text-center mb-8 relative">
+            <h1 class="text-3xl md:text-4xl font-bold text-slate-800">Portal Laporan Penjualan</h1>
+            <div id="auth-controls" class="absolute top-0 right-0">
+                <button id="admin-login-btn" class="bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors text-sm">Login Admin</button>
+                <button id="admin-logout-btn" class="hidden bg-red-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-600 transition-colors text-sm">Logout</button>
+            </div>
+        </header>
+
+        <!-- ADMIN VIEW: DATA INPUT -->
+        <div id="admin-view-container" class="hidden">
+            <div class="bg-white p-6 rounded-xl shadow-lg mb-8">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-semibold text-slate-700">Langkah 1: Masukkan & Proses Data</h2>
+                    <div id="status-indicator" class="text-sm text-gray-500 px-3 py-1 rounded-full bg-gray-100 transition-opacity duration-300 opacity-0"></div>
+                </div>
+                <textarea id="raw-data-input" rows="12" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 font-mono text-sm" placeholder="Tempel data mentah dari spreadsheet di sini..."></textarea>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    <button id="save-data-btn" class="w-full bg-purple-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-purple-700 transition-colors flex items-center justify-center gap-2 shadow-sm hover:shadow-md">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" /></svg>
+                        Simpan Data ke Cloud
+                    </button>
+                    <button id="process-btn" class="w-full bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 shadow-sm hover:shadow-md">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                        Proses Laporan dari Tampilan
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Filter Periode (Visible to all) -->
+        <div id="filter-container" class="hidden bg-white p-4 rounded-xl shadow-lg mb-8 flex flex-col md:flex-row items-center justify-center gap-4">
+            <h3 class="text-lg font-semibold text-slate-700 mr-4">Tampilkan Laporan Untuk Periode:</h3>
+            <div>
+                <label for="start-date-filter" class="text-sm font-medium text-gray-700">Tanggal Mulai</label>
+                <input type="date" id="start-date-filter" class="mt-1 border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+            </div>
+            <div>
+                <label for="end-date-filter" class="text-sm font-medium text-gray-700">Tanggal Akhir</label>
+                <input type="date" id="end-date-filter" class="mt-1 border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+            </div>
+        </div>
+
+        <!-- LAPORAN PENJUALAN (Admin Only) -->
+        <div id="result-container" class="hidden">
+             <h2 id="report-title-1" class="text-2xl font-semibold text-slate-700 mb-4 text-center"></h2>
+             <div class="bg-white rounded-xl shadow-lg overflow-x-auto" style="max-height: 70vh;">
+                <table id="result-table" class="w-full border-collapse text-sm"></table>
+             </div>
+        </div>
+
+        <!-- LAPORAN OMSET (Admin Only) -->
+        <div id="omset-report-container" class="hidden mt-12">
+             <h2 id="report-title-2" class="text-2xl font-semibold text-slate-700 mb-4 text-center"></h2>
+             <div class="bg-white rounded-xl shadow-lg overflow-x-auto">
+                <table id="omset-report-table" class="w-full border-collapse text-sm"></table>
+             </div>
+        </div>
+
+        <!-- VERIFIKASI BONUS (Visible to all) -->
+        <div id="bonus-verification-container" class="hidden mt-8">
+            <h2 id="report-title-3" class="text-2xl font-semibold text-slate-700 mb-4 text-center"></h2>
+            <div class="bg-white p-6 rounded-xl shadow-lg max-w-lg mx-auto space-y-4">
+                <div>
+                    <label for="bonus-sales-select" class="block text-sm font-medium text-gray-700">Pilih Sales</label>
+                    <select id="bonus-sales-select" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"></select>
+                </div>
+                <div id="verification-code-wrapper">
+                    <label for="verification-code-input" class="block text-sm font-medium text-gray-700">Masukkan Kode Verifikasi</label>
+                    <input type="text" id="verification-code-input" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                </div>
+                <button id="verify-bonus-btn" class="w-full bg-green-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2 shadow-sm hover:shadow-md">
+                    Verifikasi & Tampilkan Bonus
+                </button>
+            </div>
+        </div>
+
+        <!-- LAPORAN KLAIM BONUS -->
+        <div id="bonus-claim-container" class="hidden mt-8">
+            <div id="bonus-claim-report" class="bg-white p-6 md:p-8 rounded-xl shadow-lg max-w-4xl mx-auto"></div>
+        </div>
+
+        <!-- LOGIN MODAL -->
+        <div id="login-modal" class="fixed inset-0 bg-black bg-opacity-60 modal-overlay flex justify-center items-center p-4 hidden">
+            <div class="bg-white rounded-lg shadow-2xl p-8 w-full max-w-sm">
+                <h2 class="text-2xl font-bold text-slate-800 mb-4">Login Admin</h2>
+                <input type="password" id="admin-code-input" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500" placeholder="Masukkan kode admin...">
+                <p id="login-error" class="text-red-500 text-sm mt-2 h-4"></p>
+                <div class="mt-4 flex gap-4">
+                    <button id="login-submit-btn" class="w-full bg-indigo-600 text-white font-semibold py-2 px-5 rounded-lg hover:bg-indigo-700 transition-colors">Login</button>
+                    <button id="login-close-btn" class="w-full bg-gray-200 text-gray-700 font-semibold py-2 px-5 rounded-lg hover:bg-gray-300 transition-colors">Batal</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="error-message" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative mt-4" role="alert"></div>
+    </div>
+
+    <script type="module">
+        // Import Firebase modules
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // DOM Elements
+        const processBtn = document.getElementById('process-btn');
+        const saveDataBtn = document.getElementById('save-data-btn');
+        const rawDataInput = document.getElementById('raw-data-input');
+        const resultContainer = document.getElementById('result-container');
+        const resultTable = document.getElementById('result-table');
+        const omsetReportContainer = document.getElementById('omset-report-container');
+        const omsetReportTable = document.getElementById('omset-report-table');
+        const errorMessage = document.getElementById('error-message');
+        const bonusVerificationContainer = document.getElementById('bonus-verification-container');
+        const bonusSalesSelect = document.getElementById('bonus-sales-select');
+        const verificationCodeWrapper = document.getElementById('verification-code-wrapper');
+        const verificationCodeInput = document.getElementById('verification-code-input');
+        const verifyBonusBtn = document.getElementById('verify-bonus-btn');
+        const bonusClaimContainer = document.getElementById('bonus-claim-container');
+        const bonusClaimReport = document.getElementById('bonus-claim-report');
+        const statusIndicator = document.getElementById('status-indicator');
+        const filterContainer = document.getElementById('filter-container');
+        const startDateFilter = document.getElementById('start-date-filter');
+        const endDateFilter = document.getElementById('end-date-filter');
+        const adminViewContainer = document.getElementById('admin-view-container');
+        const authControls = {
+            loginBtn: document.getElementById('admin-login-btn'),
+            logoutBtn: document.getElementById('admin-logout-btn')
+        };
+        const loginModal = {
+            container: document.getElementById('login-modal'),
+            input: document.getElementById('admin-code-input'),
+            submitBtn: document.getElementById('login-submit-btn'),
+            closeBtn: document.getElementById('login-close-btn'),
+            error: document.getElementById('login-error')
+        };
+        
+        // Global state
+        let fullData = []; 
+        let finalBonusData = null;
+        let db, auth;
+        let isAdminLoggedIn = false;
+        let unsubscribeFromData; // To store the real-time listener
+        const ADMIN_CODE = "0011Erdna=Andre1100";
+
+        // Configuration Data (Bonus Targets & Verification Codes)
+        const targetBonusData = {
+            'JUNTAK': { 'BAUT':{t:[35e6,5e7,8e7],b:[.005,.0075,.01]},'BR':{t:[55e7,7e8,85e7],b:[.0009,.0015,.002]},'PLAFONPVC':{t:[1e8,12e7,15e7],b:[.005,.0075,.01]},'SEMEN':{t:[6e8,8e8,1e9],b:[.0009,.0015,.002]},'SPANDEK':{t:[12e8,14e8,16e8],b:[.0009,.0015,.002]}},
+            'SOFIAN': { 'BAUT':{t:[3e7,4e7,5e7],b:[.005,.0075,.01]},'BR':{t:[45e7,55e7,65e7],b:[.0009,.0015,.002]},'PLAFONPVC':{t:[8e7,1e8,12e7],b:[.005,.0075,.01]},'SEMEN':{t:[45e7,55e7,7e8],b:[.0009,.0015,.002]},'SPANDEK':{t:[1e9,12e8,15e8],b:[.0009,.0015,.002]}},
+            'DEFAULT': {'BAUT':{t:[25e6,35e6,5e7],b:[.005,.0075,.01]},'BR':{t:[2e8,3e8,5e8],b:[.0009,.0015,.002]},'PLAFONPVC':{t:[35e6,45e6,6e7],b:[.005,.0075,.01]},'SEMEN':{t:[2e8,3e8,5e8],b:[.0009,.0015,.002]},'SPANDEK':{t:[5e8,6e8,75e7],b:[.0009,.0015,.002]}}
+        };
+        const verificationCodes = { 'ANDRE':'Andre1','CHARLES':'Charles2','JUNTAK':'Juntak3','SOFIAN':'Sofian4','YOGI':'Yogi5','YOSRI':'Yosri6' };
+
+        // --- UTILITY & HELPER FUNCTIONS ---
+        const formatNumber = (number) => new Intl.NumberFormat('id-ID').format(number);
+        const formatCurrency = (number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(number);
+        const formatDateForInput = (date) => date.toISOString().split('T')[0];
+        function showError(message) { errorMessage.textContent = message; errorMessage.classList.remove('hidden'); }
+        function hideError() { errorMessage.classList.add('hidden'); }
+        function showStatus(message, isSuccess = false, duration = 3000) {
+            statusIndicator.textContent = message;
+            statusIndicator.classList.remove('opacity-0');
+            statusIndicator.className = `text-sm px-3 py-1 rounded-full transition-all duration-300 ${isSuccess ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`;
+            if(isSuccess) {
+                setTimeout(() => statusIndicator.classList.add('opacity-0'), duration);
+            }
+        }
+
+        // --- AUTH & UI VISIBILITY ---
+        function updateUIVisibility() {
+            if (isAdminLoggedIn) {
+                adminViewContainer.classList.remove('hidden');
+                authControls.loginBtn.classList.add('hidden');
+                authControls.logoutBtn.classList.remove('hidden');
+            } else {
+                adminViewContainer.classList.add('hidden');
+                authControls.loginBtn.classList.remove('hidden');
+                authControls.logoutBtn.classList.add('hidden');
+                resultContainer.classList.add('hidden');
+                omsetReportContainer.classList.add('hidden');
+            }
+            if (fullData.length > 0) {
+                 runAllReports();
+            }
+        }
+
+        authControls.loginBtn.addEventListener('click', () => loginModal.container.classList.remove('hidden'));
+        loginModal.closeBtn.addEventListener('click', () => loginModal.container.classList.add('hidden'));
+        authControls.logoutBtn.addEventListener('click', () => {
+            isAdminLoggedIn = false;
+            localStorage.removeItem('isAdmin');
+            updateUIVisibility();
+            bonusClaimContainer.classList.add('hidden');
+        });
+
+        loginModal.submitBtn.addEventListener('click', async () => {
+            if (loginModal.input.value === ADMIN_CODE) {
+                isAdminLoggedIn = true;
+                localStorage.setItem('isAdmin', 'true');
+                updateUIVisibility();
+                loginModal.container.classList.add('hidden');
+                loginModal.input.value = '';
+                loginModal.error.textContent = '';
+            } else {
+                loginModal.error.textContent = 'Kode admin salah.';
+            }
+        });
+
+        // --- FIREBASE INITIALIZATION & DATA HANDLING ---
+        async function initializeFirebase() {
+            try {
+                // Use environment-provided config if available, otherwise fallback to hardcoded
+                const firebaseConfig = typeof __firebase_config !== 'undefined' 
+                    ? JSON.parse(__firebase_config)
+                    : {
+                        apiKey: "AIzaSyDrRXDSEUtxYCj_EHQyOvgb_stzPaEvU_Y",
+                        authDomain: "sales-f289d.firebaseapp.com",
+                        projectId: "sales-f289d",
+                        storageBucket: "sales-f289d.firebasestorage.app",
+                        messagingSenderId: "216204839157",
+                        appId: "1:216204839157:web:01496a14e3cffbe0f81dbc"
+                    };
+
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                
+                const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+                
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    try {
+                        await signInAnonymously(auth);
+                    } catch (err) {
+                        if (err.code === 'auth/operation-not-allowed' || err.code === 'auth/admin-restricted-operation') {
+                             console.error("Firebase Anonymous Sign-in is not enabled in your project's Firebase Console.");
+                             showError("Login Gagal: Login anonim tidak diaktifkan di pengaturan Firebase. Anda perlu mengaktifkannya untuk menjalankan aplikasi ini.");
+                        } else {
+                            // Re-throw other initialization errors
+                            throw err; 
+                        }
+                    }
+                }
+                
+                if (localStorage.getItem('isAdmin') === 'true') {
+                    isAdminLoggedIn = true;
+                }
+                updateUIVisibility();
+                listenForDataChanges(); 
+
+            } catch (e) { 
+                console.error("Firebase Init Error:", e);
+                showError(`Gagal inisialisasi Firebase: ${e.message}`);
+            }
+        }
+
+        function listenForDataChanges() {
+            showStatus("Menghubungkan ke server...");
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+            const dataRef = doc(db, "artifacts", appId, "public", "data", "salesData", "rawData");
+            
+            if (unsubscribeFromData) {
+                unsubscribeFromData(); // Stop any previous listener
+            }
+
+            unsubscribeFromData = onSnapshot(dataRef, (docSnap) => {
+                if (docSnap.exists() && docSnap.data().rawText) {
+                    showStatus("Data terbaru diterima!", true);
+                    const rawText = docSnap.data().rawText;
+                    if (rawDataInput.value !== rawText) {
+                         rawDataInput.value = rawText;
+                    }
+                    processRawData(rawText);
+                } else {
+                    showError("Data penjualan belum diunggah. Silakan login sebagai Admin dan simpan data.");
+                    statusIndicator.textContent = "Menunggu Data dari Admin";
+                }
+            }, (error) => {
+                console.error("Error listening to data:", error);
+                showError("Gagal mendapatkan data real-time. Cek koneksi internet Anda.");
+            });
+        }
+
+        async function saveDataToFirestore() {
+            if (!isAdminLoggedIn) { showError("Hanya admin yang bisa menyimpan data."); return; }
+            if (!auth.currentUser) { showError("Sesi admin tidak aktif. Harap logout dan login kembali."); return;}
+            if (rawDataInput.value.trim() === "") { showError("Data mentah tidak boleh kosong untuk disimpan."); return; }
+            
+            showStatus("Menyimpan...");
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+            const dataRef = doc(db, "artifacts", appId, "public", "data", "salesData", "rawData");
+            const dataToSave = { 
+                rawText: rawDataInput.value,
+                lastUpdated: new Date()
+            };
+
+            try {
+                await setDoc(dataRef, dataToSave);
+                showStatus("Data berhasil disimpan di cloud!", true);
+            } catch (e) { 
+                console.error("Error saving data:", e); 
+                showError("Gagal menyimpan data ke cloud. Cek konsol untuk detail."); 
+            }
+        }
+        
+        // --- CORE APPLICATION LOGIC ---
+        function processRawData(rawText) {
+            try {
+                hideError();
+                if (!rawText) {
+                    // This can happen if the document is empty. It's not an error.
+                    fullData = [];
+                    filterContainer.classList.add('hidden');
+                    bonusVerificationContainer.classList.add('hidden');
+                    resultContainer.classList.add('hidden');
+                    omsetReportContainer.classList.add('hidden');
+                    return;
+                }
+                const { headers, data, dateIndex } = parseData(rawText);
+                fullData = data; 
+                const qtyCol="qtykecil", amountCol="jumlah", productCol="gol", salesCol="pof";
+                const indices = { qty: headers.indexOf(qtyCol), amount: headers.indexOf(amountCol), product: headers.indexOf(productCol), sales: headers.indexOf(salesCol), date: dateIndex };
+                if (Object.values(indices).some(i=>i===-1)) throw new Error(`Data tidak valid! Kolom penting tidak ditemukan.`);
+                fullData.forEach(row => { row.indices = indices; }); 
+                
+                if (fullData.length > 0) {
+                    if (filterContainer.classList.contains('hidden')) {
+                       setupDateFilters();
+                    }
+                    runAllReports(); 
+                    filterContainer.classList.remove('hidden');
+                    bonusVerificationContainer.classList.remove('hidden');
+                } else {
+                    filterContainer.classList.add('hidden');
+                    bonusVerificationContainer.classList.add('hidden');
+                }
+
+            } catch (e) { 
+                showError(e.message); 
+                console.error(e);
+            }
+        }
+
+
+        function runAllReports() {
+            hideError();
+            
+            const startDate = new Date(startDateFilter.value);
+            startDate.setHours(0,0,0,0);
+            const endDate = new Date(endDateFilter.value);
+            endDate.setHours(23,59,59,999);
+
+            const filteredData = fullData.filter(row => row.date >= startDate && row.date <= endDate);
+
+            if (filteredData.length === 0) {
+                resultContainer.classList.add('hidden');
+                omsetReportContainer.classList.add('hidden');
+                bonusClaimContainer.classList.add('hidden');
+                // Don't hide the whole verification container, just show no data in dropdown
+                bonusSalesSelect.innerHTML = `<option value="">-- Tidak ada data di periode ini --</option>`;
+                return;
+            }
+
+            const processed = processPivotData(filteredData);
+            const aggregatedOmsetData = aggregateOmsetReportData(processed.pivotData, processed.salesList);
+            finalBonusData = calculateAllBonuses(aggregatedOmsetData, processed.salesList);
+            
+            const periodTitle = `Periode ${startDate.toLocaleDateString('id-ID')} s/d ${endDate.toLocaleDateString('id-ID')}`;
+            document.getElementById('report-title-1').textContent = `Laporan Penjualan - ${periodTitle}`;
+            document.getElementById('report-title-2').textContent = `Laporan Omset - ${periodTitle}`;
+            document.getElementById('report-title-3').textContent = `Verifikasi Bonus - ${periodTitle}`;
+            
+            if (isAdminLoggedIn) {
+                renderResultTable(processed.pivotData, processed.salesList, processed.productList);
+                renderOmsetReport(aggregatedOmsetData, processed.salesList);
+                resultContainer.classList.remove('hidden');
+                omsetReportContainer.classList.remove('hidden');
+            } else {
+                 resultContainer.classList.add('hidden');
+                 omsetReportContainer.classList.add('hidden');
+            }
+
+            setupBonusVerification(processed.salesList);
+            bonusVerificationContainer.classList.remove('hidden');
+            bonusClaimContainer.classList.add('hidden');
+        }
+
+        processBtn.addEventListener('click', () => processRawData(rawDataInput.value.trim()));
+        
+        startDateFilter.addEventListener('change', runAllReports);
+        endDateFilter.addEventListener('change', runAllReports);
+        saveDataBtn.addEventListener('click', saveDataToFirestore);
+        
+        verifyBonusBtn.addEventListener('click', () => {
+            const selectedSales = bonusSalesSelect.value;
+            if (!selectedSales) {
+                showError("Silakan pilih nama sales terlebih dahulu.");
+                return;
+            }
+            const enteredCode = verificationCodeInput.value.trim();
+            const correctCode = verificationCodes[selectedSales] || 'default_code_123';
+            if (enteredCode === correctCode) {
+                hideError();
+                renderBonusClaimReport(selectedSales);
+                bonusClaimContainer.classList.remove('hidden');
+                bonusClaimContainer.scrollIntoView({ behavior: 'smooth' });
+            } else {
+                showError(`Kode verifikasi untuk ${selectedSales} salah.`);
+                bonusClaimContainer.classList.add('hidden');
+            }
+        });
+
+        function setupDateFilters() {
+            if (fullData.length === 0) return;
+            const latestDate = new Date(Math.max.apply(null, fullData.map(row => row.date)));
+            const firstDay = new Date(latestDate.getFullYear(), latestDate.getMonth(), 1);
+            const lastDay = new Date(latestDate.getFullYear(), latestDate.getMonth() + 1, 0);
+
+            startDateFilter.value = formatDateForInput(firstDay);
+            endDateFilter.value = formatDateForInput(lastDay);
+        }
+
+        function parseData(text) {
+            const rows = text.split('\n').filter(row => row.trim() !== '');
+            if (rows.length < 2) throw new Error("Data harus memiliki setidaknya satu baris header dan satu baris data.");
+            const headers = rows[0].split('\t').map(h => h.trim().toLowerCase());
+            const dateIndex = headers.indexOf('tgl');
+            if(dateIndex === -1) throw new Error("Kolom 'tgl' tidak ditemukan di header.");
+            const data = rows.slice(1).map(row => {
+                const cells = row.split('\t').map(c => c.trim());
+                if(cells.length < headers.length) return null; 
+                const dateParts = cells[dateIndex].split('/');
+                if (dateParts.length !== 3) return null; 
+                const date = new Date(dateParts[2], dateParts[1] - 1, dateParts[0]);
+                if (isNaN(date.getTime())) return null; 
+                return { cells, date };
+            }).filter(Boolean); 
+            return { headers, data, dateIndex };
+        }
+
+        function processPivotData(data) {
+            const pivotData = {};
+            const salesSet = new Set(), productSet = new Set();
+            data.forEach(row => {
+                const { cells, indices } = row;
+                const productRaw = cells[indices.product], salesRaw = cells[indices.sales];
+                if (!productRaw || !salesRaw || productRaw.trim() === '-') return;
+                const product = productRaw.trim().toUpperCase(), sales = salesRaw.trim().toUpperCase();
+                salesSet.add(sales); productSet.add(product);
+                const qty = parseFloat((cells[indices.qty] || '0').replace(/\./g, '').replace(/,/g, '.')) || 0;
+                const amount = parseFloat((cells[indices.amount] || '0').replace(/\./g, '').replace(/,/g, '.')) || 0;
+                if (!pivotData[product]) pivotData[product] = {};
+                if (!pivotData[product][sales]) pivotData[product][sales] = { qty: 0, amount: 0 };
+                pivotData[product][sales].qty += qty;
+                pivotData[product][sales].amount += amount;
+            });
+            return { pivotData, salesList: Array.from(salesSet).sort(), productList: Array.from(productSet).sort() };
+        }
+        
+        let adminBonusChangeListener = null;
+        function setupBonusVerification(salesList) {
+            if (salesList.length > 0) {
+                 bonusSalesSelect.innerHTML = salesList.map(s => `<option value="${s}">${s}</option>`).join('');
+            } else {
+                 bonusSalesSelect.innerHTML = `<option value="">-- Tidak ada sales --</option>`;
+            }
+            verificationCodeInput.value = '';
+            bonusClaimContainer.classList.add('hidden');
+
+            if (adminBonusChangeListener) {
+                bonusSalesSelect.removeEventListener('change', adminBonusChangeListener);
+            }
+
+            if (isAdminLoggedIn) {
+                verificationCodeWrapper.classList.add('hidden');
+                verifyBonusBtn.classList.add('hidden');
+
+                adminBonusChangeListener = (e) => {
+                    renderBonusClaimReport(e.target.value);
+                    bonusClaimContainer.classList.remove('hidden');
+                };
+                bonusSalesSelect.addEventListener('change', adminBonusChangeListener);
+                
+                if (salesList.length > 0) {
+                    renderBonusClaimReport(bonusSalesSelect.value);
+                    bonusClaimContainer.classList.remove('hidden');
+                }
+            } else { 
+                verificationCodeWrapper.classList.remove('hidden');
+                verifyBonusBtn.classList.remove('hidden');
+            }
+        }
+
+        function calculateAllBonuses(aggregatedOmsetData, salesList) {
+            const bonusData = {};
+            const mainProducts = ['BAUT', 'BR', 'PLAFONPVC', 'SEMEN', 'SPANDEK'];
+            salesList.forEach(sales => {
+                bonusData[sales] = { details: [], totalBonus: 0 };
+                mainProducts.forEach(category => {
+                    const actualOmset = aggregatedOmsetData[category]?.[sales]?.amount || 0;
+                    const targetProfile = targetBonusData[sales] || targetBonusData.DEFAULT;
+                    const config = targetProfile[category] || { t: [0, 0, 0], b: [0, 0, 0] };
+                    const [t1, t2, t3] = config.t;
+                    const [b1, b2, b3] = config.b;
+                    let bonusPct = 0;
+                    let targetLabel = "Tidak Mencapai Target";
+                    let targetValue = 0;
+                    let bonusAchieved = false;
+                    if (t3 > 0 && actualOmset >= t3) { bonusPct = b3; targetLabel = `Target 3`; targetValue = t3; bonusAchieved = true; } 
+                    else if (t2 > 0 && actualOmset >= t2) { bonusPct = b2; targetLabel = `Target 2`; targetValue = t2; bonusAchieved = true; } 
+                    else if (t1 > 0 && actualOmset >= t1) { bonusPct = b1; targetLabel = `Target 1`; targetValue = t1; bonusAchieved = true; }
+                    if (!bonusAchieved && t1 > 0) {
+                        if (actualOmset >= t1 * 0.9) {
+                            bonusPct = b1;
+                            targetLabel = `Target 1 (Ambang 90%)`;
+                            targetValue = t1;
+                        }
+                    }
+                    const bonusAmount = actualOmset * bonusPct;
+                    bonusData[sales].details.push({ category, omset: actualOmset, bonus: bonusAmount, targetLabel, targetValue, bonusPct });
+                    bonusData[sales].totalBonus += bonusAmount;
+                });
+            });
+            return bonusData;
+        }
+
+        function renderBonusClaimReport(sales) {
+            bonusClaimReport.innerHTML = '';
+            const salesData = finalBonusData[sales];
+            if (!salesData) return;
+            const title = document.createElement('h3');
+            title.className = 'text-xl font-bold text-slate-800 text-center mb-1';
+            title.textContent = `Laporan Klaim Bonus`;
+            const subtitle = document.createElement('p');
+            subtitle.className = 'text-2xl font-bold text-teal-600 text-center mb-6';
+            subtitle.textContent = sales;
+            bonusClaimReport.appendChild(title);
+            bonusClaimReport.appendChild(subtitle);
+            const table = document.createElement('table');
+            table.className = 'w-full text-sm';
+            const thead = table.createTHead();
+            thead.insertRow().innerHTML = `<th class="header-cell text-left">KATEGORI</th><th class="header-cell">OMSET</th><th class="header-cell">TARGET TERCAPAI</th><th class="header-cell">BONUS (%)</th><th class="header-cell">BONUS (RP)</th>`;
+            const tbody = table.createTBody();
+            salesData.details.forEach(detail => {
+                const row = tbody.insertRow();
+                row.className = 'data-row';
+                row.insertCell().textContent = detail.category;
+                row.cells[0].className = 'item-cell table-cell';
+                row.insertCell().textContent = formatCurrency(detail.omset);
+                row.cells[1].className = 'table-cell';
+                let targetText = detail.targetValue > 0 ? `${detail.targetLabel} (${formatCurrency(detail.targetValue)})` : detail.targetLabel;
+                row.insertCell().textContent = targetText;
+                row.cells[2].className = 'table-cell';
+                row.insertCell().textContent = `${(detail.bonusPct * 100).toFixed(2)}%`;
+                row.cells[3].className = 'table-cell';
+                row.insertCell().textContent = formatCurrency(detail.bonus);
+                row.cells[4].className = 'table-cell font-bold text-green-600';
+            });
+            const tfoot = table.createTFoot();
+            const footerRow = tfoot.insertRow();
+            footerRow.className = 'grand-total-row';
+            const footerLabel = footerRow.insertCell();
+            footerLabel.textContent = 'TOTAL BONUS DITERIMA';
+            footerLabel.colSpan = "4";
+            footerLabel.className = 'item-cell';
+            const footerValue = footerRow.insertCell();
+            footerValue.textContent = formatCurrency(salesData.totalBonus);
+            footerValue.className = 'table-cell font-extrabold';
+            bonusClaimReport.appendChild(table);
+        }
+        
+        function aggregateOmsetReportData(pivotData, salesList) {
+            const mainProducts = ['BAUT', 'BR', 'PLAFONPVC', 'SEMEN', 'SPANDEK'];
+            const aggregationMap = {
+                'BAUT': ['BAUT', 'KL', 'TILE GROUT', 'ACIAN'],
+                'BR': ['BR', 'CANAL', 'COIL', 'FURING', 'RENG'],
+                'PLAFONPVC': ['PLAFONPVC', 'UPVC'],
+                'SEMEN': ['SEMEN'],
+                'SPANDEK': ['SPANDEK', 'ALUMINIUM', 'BOLA-BOLA', 'BONDEK', 'GENTENG', 'LENGKUNG', 'NUSAPLANK', 'R JAYADEK', 'RABUNG', 'SENG', 'UPAH PASIRAN', 'SENG PLAT']
+            };
+            const aggregatedData = {};
+            mainProducts.forEach(mainProd => {
+                aggregatedData[mainProd] = {};
+                salesList.forEach(sales => { aggregatedData[mainProd][sales] = { qty: 0, amount: 0 }; });
+            });
+            for (const mainProd in aggregationMap) {
+                const sourceProducts = aggregationMap[mainProd];
+                sourceProducts.forEach(sourceProd => {
+                    if (pivotData[sourceProd]) {
+                        salesList.forEach(sales => {
+                            if (pivotData[sourceProd][sales]) {
+                                aggregatedData[mainProd][sales].qty += pivotData[sourceProd][sales].qty;
+                                aggregatedData[mainProd][sales].amount += pivotData[sourceProd][sales].amount;
+                            }
+                        });
+                    }
+                });
+            }
+            return aggregatedData;
+        }
+
+        function renderResultTable(pivotData, salesList, productList) {
+            resultTable.innerHTML = '';
+            const thead = resultTable.createTHead();
+            const headerRow1 = thead.insertRow();
+            headerRow1.insertCell().className = 'header-cell sticky-col'; 
+            salesList.forEach(name => {
+                const th = document.createElement('th');
+                th.className = 'header-cell'; th.colSpan = 2; th.textContent = name.toUpperCase();
+                headerRow1.appendChild(th);
+            });
+            const totalHeader = document.createElement('th');
+            totalHeader.className = 'header-cell'; totalHeader.colSpan = 2; totalHeader.textContent = 'TOTAL';
+            headerRow1.appendChild(totalHeader);
+            const headerRow2 = thead.insertRow();
+            headerRow2.appendChild(document.createElement('th')).textContent = 'PRODUK';
+            headerRow2.lastChild.className = 'header-cell sticky-col';
+            [...salesList, 'TOTAL'].forEach(() => {
+                headerRow2.appendChild(document.createElement('th')).textContent = 'QTY';
+                headerRow2.appendChild(document.createElement('th')).textContent = 'RP';
+                headerRow2.lastChild.className = 'header-cell';
+                headerRow2.children[headerRow2.children.length - 2].className = 'header-cell';
+            });
+            const tbody = resultTable.createTBody();
+            const grandTotal = salesList.reduce((acc, s) => ({...acc, [s]: {qty: 0, amount: 0}}), {});
+            productList.forEach(product => {
+                const row = tbody.insertRow();
+                row.className = 'data-row';
+                row.insertCell().className = 'item-cell sticky-col';
+                row.cells[0].textContent = product;
+                let rowTotalQty = 0, rowTotalAmount = 0;
+                salesList.forEach(sales => {
+                    const data = pivotData[product]?.[sales] || { qty: 0, amount: 0 };
+                    row.insertCell().textContent = formatNumber(data.qty);
+                    row.insertCell().textContent = formatNumber(data.amount);
+                    row.cells[row.cells.length-1].classList.add('table-cell');
+                    row.cells[row.cells.length-2].classList.add('table-cell');
+                    rowTotalQty += data.qty; rowTotalAmount += data.amount;
+                    grandTotal[sales].qty += data.qty; grandTotal[sales].amount += data.amount;
+                });
+                row.insertCell().textContent = formatNumber(rowTotalQty);
+                row.insertCell().textContent = formatNumber(rowTotalAmount);
+                row.cells[row.cells.length-1].classList.add('table-cell', 'font-semibold', 'bg-blue-50');
+                row.cells[row.cells.length-2].classList.add('table-cell', 'font-semibold', 'bg-blue-50');
+            });
+            const tfoot = resultTable.createTFoot();
+            const footerRow = tfoot.insertRow();
+            footerRow.className = 'grand-total-row';
+            footerRow.insertCell().className = 'sticky-col item-cell';
+            footerRow.cells[0].textContent = 'GRAND TOTAL';
+            let finalQty = 0, finalAmount = 0;
+            salesList.forEach(s => {
+                footerRow.insertCell().textContent = formatNumber(grandTotal[s].qty);
+                footerRow.insertCell().textContent = formatNumber(grandTotal[s].amount);
+                footerRow.cells[footerRow.cells.length-1].classList.add('table-cell');
+                footerRow.cells[footerRow.cells.length-2].classList.add('table-cell');
+                finalQty += grandTotal[s].qty; finalAmount += grandTotal[s].amount;
+            });
+            footerRow.insertCell().textContent = formatNumber(finalQty);
+            footerRow.insertCell().textContent = formatNumber(finalAmount);
+            footerRow.cells[footerRow.cells.length-1].classList.add('table-cell');
+            footerRow.cells[footerRow.cells.length-2].classList.add('table-cell');
+        }
+
+        function renderOmsetReport(aggregatedData, salesList) {
+            omsetReportTable.innerHTML = '';
+            const mainProducts = ['Baut', 'BR', 'PlafonPVC', 'Semen', 'Spandek'];
+            const mainProductsUpperCase = mainProducts.map(p => p.toUpperCase());
+            const thead = omsetReportTable.createTHead();
+            const headerRow1 = thead.insertRow();
+            headerRow1.insertCell().className = 'header-cell sticky-col'; 
+            salesList.forEach(name => {
+                const th = document.createElement('th');
+                th.className = 'header-cell'; th.colSpan = 2; th.textContent = name.toUpperCase();
+                headerRow1.appendChild(th);
+            });
+            const totalHeader = document.createElement('th');
+            totalHeader.className = 'header-cell'; totalHeader.colSpan = 2; totalHeader.textContent = 'TOTAL';
+            headerRow1.appendChild(totalHeader);
+            const headerRow2 = thead.insertRow();
+            headerRow2.appendChild(document.createElement('th')).textContent = 'PRODUK';
+            headerRow2.lastChild.className = 'header-cell sticky-col';
+            [...salesList, 'TOTAL'].forEach(() => {
+                headerRow2.appendChild(document.createElement('th')).textContent = 'QTY';
+                headerRow2.appendChild(document.createElement('th')).textContent = 'RP';
+                headerRow2.lastChild.className = 'header-cell';
+                headerRow2.children[headerRow2.children.length - 2].className = 'header-cell';
+            });
+            const tbody = omsetReportTable.createTBody();
+            const grandTotal = salesList.reduce((acc, s) => ({...acc, [s]: {qty: 0, amount: 0}}), {});
+            mainProducts.forEach((product, index) => {
+                const productUpperCase = mainProductsUpperCase[index];
+                const row = tbody.insertRow();
+                row.className = 'data-row';
+                row.insertCell().className = 'item-cell sticky-col';
+                row.cells[0].textContent = product;
+                let rowTotalQty = 0, rowTotalAmount = 0;
+                salesList.forEach(sales => {
+                    const data = aggregatedData[productUpperCase]?.[sales] || { qty: 0, amount: 0 };
+                    row.insertCell().textContent = formatNumber(data.qty);
+                    row.insertCell().textContent = formatNumber(data.amount);
+                    row.cells[row.cells.length-1].classList.add('table-cell');
+                    row.cells[row.cells.length-2].classList.add('table-cell');
+                    rowTotalQty += data.qty; rowTotalAmount += data.amount;
+                    grandTotal[sales].qty += data.qty; grandTotal[sales].amount += data.amount;
+                });
+                row.insertCell().textContent = formatNumber(rowTotalQty);
+                row.insertCell().textContent = formatNumber(rowTotalAmount);
+                row.cells[row.cells.length-1].classList.add('table-cell', 'font-semibold', 'bg-blue-50');
+                row.cells[row.cells.length-2].classList.add('table-cell', 'font-semibold', 'bg-blue-50');
+            });
+            const tfoot = omsetReportTable.createTFoot();
+            const footerRow = tfoot.insertRow();
+            footerRow.className = 'grand-total-row';
+            footerRow.insertCell().className = 'sticky-col item-cell';
+            footerRow.cells[0].textContent = 'Grand Total';
+            let finalQty = 0, finalAmount = 0;
+            salesList.forEach(s => {
+                footerRow.insertCell().textContent = formatNumber(grandTotal[s].qty);
+                footerRow.insertCell().textContent = formatNumber(grandTotal[s].amount);
+                footerRow.cells[footerRow.cells.length-1].classList.add('table-cell');
+                footerRow.cells[footerRow.cells.length-2].classList.add('table-cell');
+                finalQty += grandTotal[s].qty; finalAmount += grandTotal[s].amount;
+            });
+            footerRow.insertCell().textContent = formatNumber(finalQty);
+            footerRow.insertCell().textContent = formatNumber(finalAmount);
+            footerRow.cells[footerRow.cells.length-1].classList.add('table-cell');
+            footerRow.cells[footerRow.cells.length-2].classList.add('table-cell');
+        }
+        
+        // Initialize the app on page load
+        initializeFirebase();
+    </script>
+</body>
+</html>
