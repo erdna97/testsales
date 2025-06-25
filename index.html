@@ -271,6 +271,24 @@
         });
 
         loginModal.submitBtn.addEventListener('click', async () => {
+            // First, ensure we have a Firebase auth session before proceeding
+            if (!auth.currentUser) {
+                loginModal.error.textContent = "Menyambungkan kembali...";
+                try {
+                    const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+                    if (initialAuthToken) {
+                        await signInWithCustomToken(auth, initialAuthToken);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                } catch (e) {
+                    loginModal.error.textContent = "Koneksi gagal. Coba lagi.";
+                    showError("Gagal menghubungkan ke server. Tidak dapat login sebagai admin.");
+                    return;
+                }
+            }
+
+            // Now, check the admin code
             if (loginModal.input.value === ADMIN_CODE) {
                 isAdminLoggedIn = true;
                 localStorage.setItem('isAdmin', 'true');
