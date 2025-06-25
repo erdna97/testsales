@@ -159,11 +159,18 @@
 
         <!-- LOGIN MODAL -->
         <div id="login-modal" class="fixed inset-0 bg-black bg-opacity-60 modal-overlay flex justify-center items-center p-4 hidden">
-            <div class="bg-white rounded-lg shadow-2xl p-8 w-full max-w-sm">
-                <h2 class="text-2xl font-bold text-slate-800 mb-4">Login Admin</h2>
-                <input type="password" id="admin-code-input" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500" placeholder="Masukkan kode admin...">
-                <p id="login-error" class="text-red-500 text-sm mt-2 h-4"></p>
-                <div class="mt-4 flex gap-4">
+            <div class="bg-white rounded-lg shadow-2xl p-8 w-full max-w-sm space-y-4">
+                <h2 class="text-2xl font-bold text-slate-800 text-center">Login Admin</h2>
+                <div>
+                    <label for="admin-username-input" class="block text-sm font-medium text-gray-700">Username</label>
+                    <input type="text" id="admin-username-input" class="mt-1 w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500" placeholder="username">
+                </div>
+                <div>
+                    <label for="admin-password-input" class="block text-sm font-medium text-gray-700">Password</label>
+                    <input type="password" id="admin-password-input" class="mt-1 w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500" placeholder="••••••••">
+                </div>
+                <p id="login-error" class="text-red-500 text-sm h-4 text-center"></p>
+                <div class="flex gap-4">
                     <button id="login-submit-btn" class="w-full bg-indigo-600 text-white font-semibold py-2 px-5 rounded-lg hover:bg-indigo-700 transition-colors">Login</button>
                     <button id="login-close-btn" class="w-full bg-gray-200 text-gray-700 font-semibold py-2 px-5 rounded-lg hover:bg-gray-300 transition-colors">Batal</button>
                 </div>
@@ -206,7 +213,8 @@
         };
         const loginModal = {
             container: document.getElementById('login-modal'),
-            input: document.getElementById('admin-code-input'),
+            usernameInput: document.getElementById('admin-username-input'),
+            passwordInput: document.getElementById('admin-password-input'),
             submitBtn: document.getElementById('login-submit-btn'),
             closeBtn: document.getElementById('login-close-btn'),
             error: document.getElementById('login-error')
@@ -218,7 +226,10 @@
         let db, auth;
         let isAdminLoggedIn = false;
         let unsubscribeFromData; // To store the real-time listener
-        const ADMIN_CODE = "0011Erdna=Andre1100";
+
+        // Admin Credentials
+        const ADMIN_USERNAME = "andre";
+        const ADMIN_PASSWORD = "@#!Aw231";
 
         // Configuration Data (Bonus Targets & Verification Codes)
         const targetBonusData = {
@@ -232,7 +243,10 @@
         const formatNumber = (number) => new Intl.NumberFormat('id-ID').format(number);
         const formatCurrency = (number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(number);
         const formatDateForInput = (date) => date.toISOString().split('T')[0];
-        function showError(message) { errorMessage.textContent = message; errorMessage.classList.remove('hidden'); }
+        function showError(htmlMessage, isPersistent = false) {
+            errorMessage.innerHTML = htmlMessage;
+            errorMessage.classList.remove('hidden');
+        }
         function hideError() { errorMessage.classList.add('hidden'); }
         function showStatus(message, isSuccess = false, duration = 3000) {
             statusIndicator.textContent = message;
@@ -243,8 +257,11 @@
             }
         }
 
-        // --- AUTH & UI VISIBILITY ---
+        // --- LOCAL AUTH & UI VISIBILITY ---
         function updateUIVisibility() {
+            // Check admin status from localStorage
+            isAdminLoggedIn = localStorage.getItem('isAdminLoggedIn') === 'true';
+
             if (isAdminLoggedIn) {
                 adminViewContainer.classList.remove('hidden');
                 authControls.loginBtn.classList.add('hidden');
@@ -261,50 +278,36 @@
             }
         }
 
-        authControls.loginBtn.addEventListener('click', () => loginModal.container.classList.remove('hidden'));
-        loginModal.closeBtn.addEventListener('click', () => loginModal.container.classList.add('hidden'));
-        authControls.logoutBtn.addEventListener('click', () => {
-            isAdminLoggedIn = false;
-            localStorage.removeItem('isAdmin');
-            updateUIVisibility();
-            bonusClaimContainer.classList.add('hidden');
+        authControls.loginBtn.addEventListener('click', () => {
+            loginModal.usernameInput.value = '';
+            loginModal.passwordInput.value = '';
+            loginModal.error.textContent = '';
+            loginModal.container.classList.remove('hidden')
         });
 
-        loginModal.submitBtn.addEventListener('click', async () => {
-            // First, ensure we have a Firebase auth session before proceeding
-            if (!auth.currentUser) {
-                loginModal.error.textContent = "Menyambungkan kembali...";
-                try {
-                    const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-                    if (initialAuthToken) {
-                        await signInWithCustomToken(auth, initialAuthToken);
-                    } else {
-                        await signInAnonymously(auth);
-                    }
-                } catch (e) {
-                    loginModal.error.textContent = "Koneksi gagal. Coba lagi.";
-                    showError("Gagal menghubungkan ke server. Tidak dapat login sebagai admin.");
-                    return;
-                }
-            }
+        loginModal.closeBtn.addEventListener('click', () => loginModal.container.classList.add('hidden'));
+        
+        authControls.logoutBtn.addEventListener('click', () => {
+            localStorage.removeItem('isAdminLoggedIn');
+            updateUIVisibility();
+        });
 
-            // Now, check the admin code
-            if (loginModal.input.value === ADMIN_CODE) {
-                isAdminLoggedIn = true;
-                localStorage.setItem('isAdmin', 'true');
+        loginModal.submitBtn.addEventListener('click', () => {
+            const username = loginModal.usernameInput.value;
+            const password = loginModal.passwordInput.value;
+            
+            if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
+                localStorage.setItem('isAdminLoggedIn', 'true');
                 updateUIVisibility();
                 loginModal.container.classList.add('hidden');
-                loginModal.input.value = '';
-                loginModal.error.textContent = '';
             } else {
-                loginModal.error.textContent = 'Kode admin salah.';
+                loginModal.error.textContent = "Username atau password salah.";
             }
         });
 
         // --- FIREBASE INITIALIZATION & DATA HANDLING ---
         async function initializeFirebase() {
             try {
-                // Use environment-provided config if available, otherwise fallback to hardcoded
                 const firebaseConfig = typeof __firebase_config !== 'undefined' 
                     ? JSON.parse(__firebase_config)
                     : {
@@ -318,31 +321,38 @@
 
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
-                auth = getAuth(app);
+                auth = getAuth(app); // Still needed for anonymous sign-in
                 
-                const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-                
-                if (initialAuthToken) {
-                    await signInWithCustomToken(auth, initialAuthToken);
-                } else {
-                    try {
+                // Sign in anonymously in the background to get read/write permissions
+                try {
+                     const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+                    if (initialAuthToken) {
+                        await signInWithCustomToken(auth, initialAuthToken);
+                    } else {
                         await signInAnonymously(auth);
-                    } catch (err) {
-                        if (err.code === 'auth/operation-not-allowed' || err.code === 'auth/admin-restricted-operation') {
-                             console.error("Firebase Anonymous Sign-in is not enabled in your project's Firebase Console.");
-                             showError("Login Gagal: Login anonim tidak diaktifkan di pengaturan Firebase. Anda perlu mengaktifkannya untuk menjalankan aplikasi ini.");
-                        } else {
-                            // Re-throw other initialization errors
-                            throw err; 
-                        }
+                    }
+                    // Once signed in, we can listen for data
+                    listenForDataChanges();
+                } catch (e) {
+                     console.error("Anonymous sign-in error:", e);
+                    if (e.code === 'auth/operation-not-allowed') {
+                        const msg = `
+                            <strong>Kesalahan Konfigurasi Firebase!</strong><br>
+                            Aplikasi tidak bisa menampilkan data karena metode login tamu (Anonymous) belum diaktifkan.<br><br>
+                            <strong>Langkah Wajib:</strong><br>
+                            1. Buka <strong>Firebase Console</strong> proyek Anda.<br>
+                            2. Pergi ke menu <strong>Authentication</strong> > tab <strong>Sign-in method</strong>.<br>
+                            3. Klik <strong>'Add new provider'</strong> dan pilih <strong>Anonymous</strong>.<br>
+                            4. <strong>Aktifkan (Enable)</strong> lalu simpan.
+                        `;
+                        showError(msg);
+                    } else {
+                        showError("Gagal menyambung sebagai tamu. Tampilan mungkin terbatas.");
                     }
                 }
-                
-                if (localStorage.getItem('isAdmin') === 'true') {
-                    isAdminLoggedIn = true;
-                }
+
+                // Finally, check local login state and update UI
                 updateUIVisibility();
-                listenForDataChanges(); 
 
             } catch (e) { 
                 console.error("Firebase Init Error:", e);
@@ -356,10 +366,11 @@
             const dataRef = doc(db, "artifacts", appId, "public", "data", "salesData", "rawData");
             
             if (unsubscribeFromData) {
-                unsubscribeFromData(); // Stop any previous listener
+                unsubscribeFromData();
             }
 
             unsubscribeFromData = onSnapshot(dataRef, (docSnap) => {
+                hideError(); // Hide previous errors if data is successfully received
                 if (docSnap.exists() && docSnap.data().rawText) {
                     showStatus("Data terbaru diterima!", true);
                     const rawText = docSnap.data().rawText;
@@ -368,19 +379,27 @@
                     }
                     processRawData(rawText);
                 } else {
-                    showError("Data penjualan belum diunggah. Silakan login sebagai Admin dan simpan data.");
-                    statusIndicator.textContent = "Menunggu Data dari Admin";
+                    statusIndicator.textContent = "Data di cloud kosong. Admin perlu mengunggah data.";
                 }
             }, (error) => {
                 console.error("Error listening to data:", error);
-                showError("Gagal mendapatkan data real-time. Cek koneksi internet Anda.");
+                if (error.code === 'permission-denied') {
+                     showError('<strong>Gagal Memuat Data:</strong> Izin ditolak. Harap pastikan login anonim aktif di Firebase Console.');
+                } else {
+                    showError("Gagal mendapatkan data real-time: " + error.message);
+                }
             });
         }
 
         async function saveDataToFirestore() {
-            if (!isAdminLoggedIn) { showError("Hanya admin yang bisa menyimpan data."); return; }
-            if (!auth.currentUser) { showError("Sesi admin tidak aktif. Harap logout dan login kembali."); return;}
-            if (rawDataInput.value.trim() === "") { showError("Data mentah tidak boleh kosong untuk disimpan."); return; }
+            if (!isAdminLoggedIn) { 
+                showError("Operasi ini hanya untuk admin. Silakan login terlebih dahulu."); 
+                return; 
+            }
+            if (rawDataInput.value.trim() === "") { 
+                showError("Data mentah tidak boleh kosong untuk disimpan."); 
+                return; 
+            }
             
             showStatus("Menyimpan...");
             const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
@@ -404,7 +423,6 @@
             try {
                 hideError();
                 if (!rawText) {
-                    // This can happen if the document is empty. It's not an error.
                     fullData = [];
                     filterContainer.classList.add('hidden');
                     bonusVerificationContainer.classList.add('hidden');
@@ -452,7 +470,6 @@
                 resultContainer.classList.add('hidden');
                 omsetReportContainer.classList.add('hidden');
                 bonusClaimContainer.classList.add('hidden');
-                // Don't hide the whole verification container, just show no data in dropdown
                 bonusSalesSelect.innerHTML = `<option value="">-- Tidak ada data di periode ini --</option>`;
                 return;
             }
