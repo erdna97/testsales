@@ -11,6 +11,9 @@
             font-family: 'Inter', sans-serif;
             background-color: #f0f4f8;
         }
+        .main-content {
+            display: none; /* Hidden by default */
+        }
         .table-cell {
             padding: 12px 16px;
             border-bottom: 1px solid #e2e8f0;
@@ -73,132 +76,144 @@
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800">
-
-    <div class="container mx-auto p-4 md:p-8">
-        
-        <header class="text-center mb-8 relative">
-            <h1 class="text-3xl md:text-4xl font-bold text-slate-800">Portal Laporan Penjualan</h1>
-            <div id="auth-container" class="absolute top-0 right-0">
-                <button id="login-btn" class="bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors text-sm">Login</button>
-                <button id="logout-btn" class="hidden bg-red-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-600 transition-colors text-sm">Logout</button>
-            </div>
-        </header>
-
-        <!-- ADMIN VIEW: DATA INPUT -->
-        <div id="admin-view-container" class="hidden">
-            <div class="bg-white p-6 rounded-xl shadow-lg mb-8">
-                <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-2xl font-semibold text-slate-700">Langkah 1: Masukkan & Proses Data</h2>
-                    <div id="status-indicator" class="text-sm text-gray-500 px-3 py-1 rounded-full bg-gray-100 transition-opacity duration-300 opacity-0"></div>
-                </div>
-                <textarea id="raw-data-input" rows="12" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 font-mono text-sm" placeholder="Tempel data mentah dari spreadsheet di sini..."></textarea>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                    <button id="save-data-btn" class="w-full bg-purple-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-purple-700 transition-colors flex items-center justify-center gap-2 shadow-sm hover:shadow-md">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" /></svg>
-                        Simpan Data ke Cloud
-                    </button>
-                    <button id="process-btn" class="w-full bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 shadow-sm hover:shadow-md">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                        Proses Laporan dari Tampilan
-                    </button>
-                </div>
-            </div>
+    
+    <!-- Initial Login Screen -->
+    <div id="initial-login-container" class="flex flex-col justify-center items-center min-h-screen p-4">
+        <h1 class="text-4xl md:text-5xl font-bold text-slate-800 mb-2">Portal Sales</h1>
+        <p class="text-slate-600 mb-8">Silakan masuk sesuai peran Anda</p>
+        <div class="flex flex-col sm:flex-row gap-4 w-full max-w-sm">
+            <button id="sales-login-btn" class="w-full bg-teal-500 text-white font-bold py-4 px-6 rounded-lg hover:bg-teal-600 transition-colors shadow-lg">SALES</button>
+            <button id="admin-login-btn" class="w-full bg-indigo-600 text-white font-bold py-4 px-6 rounded-lg hover:bg-indigo-700 transition-colors shadow-lg">ADMIN</button>
         </div>
-        
-        <!-- Filter Periode (Visible to all logged in users) -->
-        <div id="filter-container" class="hidden bg-white p-4 rounded-xl shadow-lg mb-8 flex flex-col md:flex-row items-center justify-center gap-4">
-            <h3 class="text-lg font-semibold text-slate-700 mr-4">Tampilkan Laporan Untuk Periode:</h3>
-            <div>
-                <label for="start-date-filter" class="text-sm font-medium text-gray-700">Tanggal Mulai</label>
-                <input type="date" id="start-date-filter" class="mt-1 border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
-            </div>
-            <div>
-                <label for="end-date-filter" class="text-sm font-medium text-gray-700">Tanggal Akhir</label>
-                <input type="date" id="end-date-filter" class="mt-1 border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
-            </div>
-        </div>
-
-        <!-- LAPORAN PENJUALAN (Admin Only) -->
-        <div id="result-container" class="hidden">
-             <h2 id="report-title-1" class="text-2xl font-semibold text-slate-700 mb-4 text-center"></h2>
-             <div class="bg-white rounded-xl shadow-lg overflow-x-auto" style="max-height: 70vh;">
-                <table id="result-table" class="w-full border-collapse text-sm"></table>
-             </div>
-        </div>
-
-        <!-- LAPORAN OMSET (Admin Only) -->
-        <div id="omset-report-container" class="hidden mt-12">
-             <h2 id="report-title-2" class="text-2xl font-semibold text-slate-700 mb-4 text-center"></h2>
-             <div class="bg-white rounded-xl shadow-lg overflow-x-auto">
-                <table id="omset-report-table" class="w-full border-collapse text-sm"></table>
-             </div>
-        </div>
-
-        <!-- VERIFIKASI BONUS (Guest and Admin) -->
-        <div id="bonus-verification-container" class="hidden mt-8">
-            <h2 id="report-title-3" class="text-2xl font-semibold text-slate-700 mb-4 text-center"></h2>
-            <div class="bg-white p-6 rounded-xl shadow-lg max-w-lg mx-auto space-y-4">
-                <div>
-                    <label for="bonus-sales-select" class="block text-sm font-medium text-gray-700">Pilih Sales</label>
-                    <select id="bonus-sales-select" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"></select>
-                </div>
-                <div id="verification-code-wrapper">
-                    <label for="verification-code-input" class="block text-sm font-medium text-gray-700">Masukkan Kode Verifikasi</label>
-                    <input type="text" id="verification-code-input" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                </div>
-                <button id="verify-bonus-btn" class="w-full bg-green-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2 shadow-sm hover:shadow-md">
-                    Verifikasi & Tampilkan Bonus
-                </button>
-            </div>
-        </div>
-
-        <!-- LAPORAN KLAIM BONUS -->
-        <div id="bonus-claim-container" class="hidden mt-8">
-            <div id="bonus-claim-report" class="bg-white p-6 md:p-8 rounded-xl shadow-lg max-w-4xl mx-auto"></div>
-        </div>
-
-        <!-- ROLE SELECTION MODAL -->
-        <div id="role-select-modal" class="fixed inset-0 bg-black bg-opacity-60 modal-overlay flex justify-center items-center p-4 hidden">
-            <div class="bg-white rounded-lg shadow-2xl p-8 w-full max-w-xs text-center">
-                <h2 class="text-2xl font-bold text-slate-800 mb-6">Login Sebagai</h2>
-                <div class="space-y-4">
-                    <button id="guest-login-btn" class="w-full bg-teal-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-teal-600 transition-colors">Tamu</button>
-                    <button id="admin-prompt-btn" class="w-full bg-indigo-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-indigo-700 transition-colors">Admin</button>
-                </div>
-                 <button id="role-close-btn" class="mt-6 text-sm text-gray-500 hover:text-gray-700">Batal</button>
-            </div>
-        </div>
-        
-        <!-- ADMIN LOGIN MODAL -->
-        <div id="admin-login-modal" class="fixed inset-0 bg-black bg-opacity-60 modal-overlay flex justify-center items-center p-4 hidden">
-            <div class="bg-white rounded-lg shadow-2xl p-8 w-full max-w-sm space-y-4">
-                <h2 class="text-2xl font-bold text-slate-800 text-center">Login Admin</h2>
-                <div>
-                    <label for="admin-username-input" class="block text-sm font-medium text-gray-700">Username</label>
-                    <input type="text" id="admin-username-input" class="mt-1 w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500" placeholder="username">
-                </div>
-                <div>
-                    <label for="admin-password-input" class="block text-sm font-medium text-gray-700">Password</label>
-                    <input type="password" id="admin-password-input" class="mt-1 w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500" placeholder="••••••••">
-                </div>
-                <p id="login-error" class="text-red-500 text-sm h-4 text-center"></p>
-                <div class="flex gap-4">
-                    <button id="admin-submit-btn" class="w-full bg-indigo-600 text-white font-semibold py-2 px-5 rounded-lg hover:bg-indigo-700 transition-colors">Login</button>
-                    <button id="admin-close-btn" class="w-full bg-gray-200 text-gray-700 font-semibold py-2 px-5 rounded-lg hover:bg-gray-300 transition-colors">Kembali</button>
-                </div>
-            </div>
-        </div>
-
-        <div id="error-message" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative mt-4" role="alert"></div>
     </div>
+    
+    <!-- Main Application Content -->
+    <div id="main-app-container" class="main-content">
+        <div class="container mx-auto p-4 md:p-8">
+            <header class="text-center mb-8 relative">
+                <h1 class="text-3xl md:text-4xl font-bold text-slate-800">Portal Laporan Penjualan</h1>
+                <div id="auth-container" class="absolute top-0 right-0">
+                    <button id="logout-btn" class="hidden bg-red-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-600 transition-colors text-sm">Logout</button>
+                </div>
+            </header>
+
+            <!-- ADMIN VIEW: DATA INPUT -->
+            <div id="admin-view-container" class="hidden">
+                 <!-- Admin: Access Code Request Notifications -->
+                <div id="admin-code-requests-container" class="mb-8">
+                    <h3 class="text-xl font-semibold text-slate-700 mb-3 text-center">Permintaan Kode Akses</h3>
+                    <div id="admin-code-requests-list" class="bg-white p-4 rounded-xl shadow-lg space-y-3 max-h-48 overflow-y-auto">
+                        <p class="text-gray-500 text-center">Belum ada permintaan baru...</p>
+                    </div>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-lg mb-8">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-2xl font-semibold text-slate-700">Langkah 1: Masukkan & Proses Data</h2>
+                        <div id="status-indicator" class="text-sm text-gray-500 px-3 py-1 rounded-full bg-gray-100 transition-opacity duration-300 opacity-0"></div>
+                    </div>
+                    <textarea id="raw-data-input" rows="12" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 font-mono text-sm" placeholder="Tempel data mentah dari spreadsheet di sini..."></textarea>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                        <button id="save-data-btn" class="w-full bg-purple-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-purple-700 transition-colors flex items-center justify-center gap-2 shadow-sm hover:shadow-md">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" /></svg>
+                            Simpan Data ke Cloud
+                        </button>
+                        <button id="process-btn" class="w-full bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 shadow-sm hover:shadow-md">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                            Proses Laporan dari Tampilan
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Filter Periode (Visible to all logged in users) -->
+            <div id="filter-container" class="hidden bg-white p-4 rounded-xl shadow-lg mb-8 flex flex-col md:flex-row items-center justify-center gap-4">
+                <h3 class="text-lg font-semibold text-slate-700 mr-4">Tampilkan Laporan Untuk Periode:</h3>
+                <div>
+                    <label for="start-date-filter" class="text-sm font-medium text-gray-700">Tanggal Mulai</label>
+                    <input type="date" id="start-date-filter" class="mt-1 border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                </div>
+                <div>
+                    <label for="end-date-filter" class="text-sm font-medium text-gray-700">Tanggal Akhir</label>
+                    <input type="date" id="end-date-filter" class="mt-1 border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                </div>
+            </div>
+
+            <!-- LAPORAN PENJUALAN (Admin Only) -->
+            <div id="result-container" class="hidden">
+                 <h2 id="report-title-1" class="text-2xl font-semibold text-slate-700 mb-4 text-center"></h2>
+                 <div class="bg-white rounded-xl shadow-lg overflow-x-auto" style="max-height: 70vh;">
+                    <table id="result-table" class="w-full border-collapse text-sm"></table>
+                 </div>
+            </div>
+
+            <!-- LAPORAN OMSET (Admin Only) -->
+            <div id="omset-report-container" class="hidden mt-12">
+                 <h2 id="report-title-2" class="text-2xl font-semibold text-slate-700 mb-4 text-center"></h2>
+                 <div class="bg-white rounded-xl shadow-lg overflow-x-auto">
+                    <table id="omset-report-table" class="w-full border-collapse text-sm"></table>
+                 </div>
+            </div>
+
+            <!-- VERIFIKASI BONUS (Guest and Admin) -->
+            <div id="bonus-verification-container" class="hidden mt-8">
+                <h2 id="report-title-3" class="text-2xl font-semibold text-slate-700 mb-4 text-center"></h2>
+                <div class="bg-white p-6 rounded-xl shadow-lg max-w-lg mx-auto space-y-4">
+                    <div>
+                        <label for="bonus-sales-select" class="block text-sm font-medium text-gray-700">Pilih Sales</label>
+                        <select id="bonus-sales-select" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"></select>
+                    </div>
+                    <div id="verification-code-wrapper">
+                         <label for="verification-code-input" class="block text-sm font-medium text-gray-700">Masukkan Kode Verifikasi</label>
+                         <div class="flex gap-2 mt-1">
+                             <input type="text" id="verification-code-input" class="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 sm:text-sm" placeholder="Minta kode dari admin...">
+                             <button id="request-code-btn" class="w-full bg-sky-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-sky-600 transition-colors whitespace-nowrap">Minta Kode</button>
+                         </div>
+                         <p id="request-code-status" class="text-sm text-gray-500 mt-1 h-4"></p>
+                    </div>
+                    <button id="verify-bonus-btn" class="w-full bg-green-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2 shadow-sm hover:shadow-md">
+                        Verifikasi & Tampilkan Bonus
+                    </button>
+                </div>
+            </div>
+
+            <!-- LAPORAN KLAIM BONUS -->
+            <div id="bonus-claim-container" class="hidden mt-8">
+                <div id="bonus-claim-report" class="bg-white p-6 md:p-8 rounded-xl shadow-lg max-w-4xl mx-auto"></div>
+            </div>
+        </div>
+    </div>
+        
+    <!-- ADMIN LOGIN MODAL -->
+    <div id="admin-login-modal" class="fixed inset-0 bg-black bg-opacity-60 modal-overlay flex justify-center items-center p-4 hidden">
+        <div class="bg-white rounded-lg shadow-2xl p-8 w-full max-w-sm space-y-4">
+            <h2 class="text-2xl font-bold text-slate-800 text-center">Login Admin</h2>
+            <div>
+                <label for="admin-username-input" class="block text-sm font-medium text-gray-700">Username</label>
+                <input type="text" id="admin-username-input" class="mt-1 w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500" placeholder="username">
+            </div>
+            <div>
+                <label for="admin-password-input" class="block text-sm font-medium text-gray-700">Password</label>
+                <input type="password" id="admin-password-input" class="mt-1 w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500" placeholder="••••••••">
+            </div>
+            <p id="login-error" class="text-red-500 text-sm h-4 text-center"></p>
+            <div class="flex gap-4">
+                <button id="admin-submit-btn" class="w-full bg-indigo-600 text-white font-semibold py-2 px-5 rounded-lg hover:bg-indigo-700 transition-colors">Login</button>
+                <button id="admin-close-btn" class="w-full bg-gray-200 text-gray-700 font-semibold py-2 px-5 rounded-lg hover:bg-gray-300 transition-colors">Kembali</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="error-message" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative mt-4" role="alert"></div>
 
     <script type="module">
         // Import Firebase modules
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, onSnapshot, collection, addDoc, query, where, getDocs, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // DOM Elements
+        const initialLoginContainer = document.getElementById('initial-login-container');
+        const mainAppContainer = document.getElementById('main-app-container');
         const processBtn = document.getElementById('process-btn');
         const saveDataBtn = document.getElementById('save-data-btn');
         const rawDataInput = document.getElementById('raw-data-input');
@@ -209,8 +224,9 @@
         const errorMessage = document.getElementById('error-message');
         const bonusVerificationContainer = document.getElementById('bonus-verification-container');
         const bonusSalesSelect = document.getElementById('bonus-sales-select');
-        const verificationCodeWrapper = document.getElementById('verification-code-wrapper');
         const verificationCodeInput = document.getElementById('verification-code-input');
+        const requestCodeBtn = document.getElementById('request-code-btn');
+        const requestCodeStatus = document.getElementById('request-code-status');
         const verifyBonusBtn = document.getElementById('verify-bonus-btn');
         const bonusClaimContainer = document.getElementById('bonus-claim-container');
         const bonusClaimReport = document.getElementById('bonus-claim-report');
@@ -219,16 +235,12 @@
         const startDateFilter = document.getElementById('start-date-filter');
         const endDateFilter = document.getElementById('end-date-filter');
         const adminViewContainer = document.getElementById('admin-view-container');
+        const adminCodeRequestsList = document.getElementById('admin-code-requests-list');
         
         const authControls = {
-            loginBtn: document.getElementById('login-btn'),
+            salesLoginBtn: document.getElementById('sales-login-btn'),
+            adminLoginBtn: document.getElementById('admin-login-btn'),
             logoutBtn: document.getElementById('logout-btn')
-        };
-        const roleSelectModal = {
-            container: document.getElementById('role-select-modal'),
-            guestBtn: document.getElementById('guest-login-btn'),
-            adminPromptBtn: document.getElementById('admin-prompt-btn'),
-            closeBtn: document.getElementById('role-close-btn')
         };
         const adminLoginModal = {
             container: document.getElementById('admin-login-modal'),
@@ -243,25 +255,25 @@
         let fullData = []; 
         let finalBonusData = null;
         let db;
-        let unsubscribeFromData;
+        let unsubscribeFromData, unsubscribeFromCodeRequests;
 
-        // Admin Credentials
         const ADMIN_USERNAME = "andre";
         const ADMIN_PASSWORD = "@#!Aw231";
+        const CODE_REQUEST_COOLDOWN = 10 * 60 * 1000; // 10 minutes
 
-        // Configuration Data (Bonus Targets & Verification Codes)
         const targetBonusData = {
             'JUNTAK': { 'BAUT':{t:[35e6,5e7,8e7],b:[.005,.0075,.01]},'BR':{t:[55e7,7e8,85e7],b:[.0009,.0015,.002]},'PLAFONPVC':{t:[1e8,12e7,15e7],b:[.005,.0075,.01]},'SEMEN':{t:[6e8,8e8,1e9],b:[.0009,.0015,.002]},'SPANDEK':{t:[12e8,14e8,16e8],b:[.0009,.0015,.002]}},
             'SOFIAN': { 'BAUT':{t:[3e7,4e7,5e7],b:[.005,.0075,.01]},'BR':{t:[45e7,55e7,65e7],b:[.0009,.0015,.002]},'PLAFONPVC':{t:[8e7,1e8,12e7],b:[.005,.0075,.01]},'SEMEN':{t:[45e7,55e7,7e8],b:[.0009,.0015,.002]},'SPANDEK':{t:[1e9,12e8,15e8],b:[.0009,.0015,.002]}},
             'DEFAULT': {'BAUT':{t:[25e6,35e6,5e7],b:[.005,.0075,.01]},'BR':{t:[2e8,3e8,5e8],b:[.0009,.0015,.002]},'PLAFONPVC':{t:[35e6,45e6,6e7],b:[.005,.0075,.01]},'SEMEN':{t:[2e8,3e8,5e8],b:[.0009,.0015,.002]},'SPANDEK':{t:[5e8,6e8,75e7],b:[.0009,.0015,.002]}}
         };
-        const verificationCodes = { 'ANDRE':'Andre1','CHARLES':'Charles2','JUNTAK':'Juntak3','SOFIAN':'Sofian4','YOGI':'Yogi5','YOSRI':'Yosri6' };
 
-        // --- UTILITY & HELPER FUNCTIONS ---
-        const formatNumber = (number) => new Intl.NumberFormat('id-ID').format(number);
-        const formatCurrency = (number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(number);
-        const formatDateForInput = (date) => date.toISOString().split('T')[0];
-        function showError(htmlMessage, isPersistent = false) {
+        const formatDateForInput = (date) => {
+            const year = date.getFullYear();
+            const month = (date.getMonth() + 1).toString().padStart(2, '0');
+            const day = date.getDate().toString().padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        };
+        function showError(htmlMessage) {
             errorMessage.innerHTML = htmlMessage;
             errorMessage.classList.remove('hidden');
         }
@@ -275,63 +287,55 @@
             }
         }
 
-        // --- LOCAL AUTH & UI VISIBILITY ---
         function updateUIVisibility() {
             const userRole = localStorage.getItem('userRole');
 
-            // Hide everything by default
-            [adminViewContainer, resultContainer, omsetReportContainer, bonusVerificationContainer, filterContainer, authControls.logoutBtn].forEach(el => el.classList.add('hidden'));
-            authControls.loginBtn.classList.remove('hidden');
+            if (userRole) {
+                initialLoginContainer.style.display = 'none';
+                mainAppContainer.style.display = 'block';
+                authControls.logoutBtn.classList.remove('hidden');
 
-            if (userRole === 'admin') {
-                authControls.loginBtn.classList.add('hidden');
-                authControls.logoutBtn.classList.remove('hidden');
-                adminViewContainer.classList.remove('hidden');
-                filterContainer.classList.remove('hidden');
-                bonusVerificationContainer.classList.remove('hidden');
-            } else if (userRole === 'guest') {
-                authControls.loginBtn.classList.add('hidden');
-                authControls.logoutBtn.classList.remove('hidden');
-                filterContainer.classList.remove('hidden');
-                bonusVerificationContainer.classList.remove('hidden');
+                if (userRole === 'admin') {
+                    adminViewContainer.classList.remove('hidden');
+                    filterContainer.classList.remove('hidden');
+                    bonusVerificationContainer.classList.remove('hidden');
+                    listenForCodeRequests(); // Admin listens for requests
+                } else { // guest
+                    adminViewContainer.classList.add('hidden');
+                    filterContainer.classList.remove('hidden');
+                    bonusVerificationContainer.classList.remove('hidden');
+                }
             } else {
-                // If no role, just show the login button
-                 authControls.loginBtn.classList.remove('hidden');
-                 authControls.logoutBtn.classList.add('hidden');
+                initialLoginContainer.style.display = 'flex';
+                mainAppContainer.style.display = 'none';
+                authControls.logoutBtn.classList.add('hidden');
+                if (unsubscribeFromCodeRequests) unsubscribeFromCodeRequests(); // Stop listening if logged out
             }
-
-            // This function might be called before data is loaded.
-            // The actual display of reports happens in runAllReports.
-            if (fullData.length > 0) {
+            
+            if (fullData.length > 0 && userRole) {
                  runAllReports();
             }
         }
 
-        authControls.loginBtn.addEventListener('click', () => {
-            roleSelectModal.container.classList.remove('hidden');
-        });
-        
-        roleSelectModal.closeBtn.addEventListener('click', () => {
-            roleSelectModal.container.classList.add('hidden');
-        });
-
-        authControls.logoutBtn.addEventListener('click', () => {
-            localStorage.removeItem('userRole');
-            updateUIVisibility();
-        });
-
-        roleSelectModal.guestBtn.addEventListener('click', () => {
+        authControls.salesLoginBtn.addEventListener('click', () => {
             localStorage.setItem('userRole', 'guest');
-            roleSelectModal.container.classList.add('hidden');
+            const now = new Date();
+            const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+            startDateFilter.value = formatDateForInput(firstDay);
+            endDateFilter.value = formatDateForInput(now);
             updateUIVisibility();
         });
 
-        roleSelectModal.adminPromptBtn.addEventListener('click', () => {
-            roleSelectModal.container.classList.add('hidden');
+        authControls.adminLoginBtn.addEventListener('click', () => {
             adminLoginModal.usernameInput.value = '';
             adminLoginModal.passwordInput.value = '';
             adminLoginModal.error.textContent = '';
             adminLoginModal.container.classList.remove('hidden');
+        });
+        
+        authControls.logoutBtn.addEventListener('click', () => {
+            localStorage.removeItem('userRole');
+            updateUIVisibility();
         });
         
         adminLoginModal.closeBtn.addEventListener('click', () => {
@@ -350,6 +354,85 @@
                 adminLoginModal.error.textContent = "Username atau password salah.";
             }
         });
+
+        // --- CODE REQUEST & VERIFICATION LOGIC ---
+        requestCodeBtn.addEventListener('click', async () => {
+            const selectedSales = bonusSalesSelect.value;
+            if (!selectedSales) {
+                requestCodeStatus.textContent = "Pilih nama sales dulu.";
+                return;
+            }
+
+            const now = Date.now();
+            const lastRequestTime = parseInt(localStorage.getItem(`lastRequest_${selectedSales}`) || '0');
+            
+            if (now - lastRequestTime < CODE_REQUEST_COOLDOWN) {
+                const timeLeft = Math.ceil((CODE_REQUEST_COOLDOWN - (now - lastRequestTime)) / 1000 / 60);
+                requestCodeStatus.textContent = `Harap tunggu ${timeLeft} menit lagi.`;
+                return;
+            }
+            
+            const accessCode = Math.floor(100000 + Math.random() * 900000).toString();
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+            
+            try {
+                requestCodeBtn.disabled = true;
+                requestCodeStatus.textContent = "Mengirim permintaan...";
+                const requestsCollection = collection(db, "artifacts", appId, "public", "data", "accessRequests");
+                await addDoc(requestsCollection, {
+                    salesName: selectedSales,
+                    code: accessCode,
+                    createdAt: serverTimestamp()
+                });
+                
+                localStorage.setItem(`lastRequest_${selectedSales}`, now.toString());
+                requestCodeStatus.textContent = "Permintaan terkirim! Minta kode dari admin.";
+            } catch (error) {
+                console.error("Error requesting code: ", error);
+                requestCodeStatus.textContent = "Gagal, coba lagi.";
+            } finally {
+                requestCodeBtn.disabled = false;
+            }
+        });
+        
+        async function verifyCodeAndShowBonus() {
+            const selectedSales = bonusSalesSelect.value;
+            const enteredCode = verificationCodeInput.value.trim();
+        
+            if (!selectedSales || !enteredCode) {
+                showError("Pilih sales dan masukkan kode verifikasi.");
+                return;
+            }
+        
+            try {
+                const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+                const requestsCollection = collection(db, "artifacts", appId, "public", "data", "accessRequests");
+                const q = query(requestsCollection, where("salesName", "==", selectedSales), where("code", "==", enteredCode));
+                
+                const querySnapshot = await getDocs(q);
+                
+                if (!querySnapshot.empty) {
+                    hideError();
+                    renderBonusClaimReport(selectedSales);
+                    bonusClaimContainer.classList.remove('hidden');
+                    bonusClaimContainer.scrollIntoView({ behavior: 'smooth' });
+                    
+                    // Delete the used code
+                    querySnapshot.forEach(doc => {
+                        deleteDoc(doc.ref);
+                    });
+                } else {
+                    showError("Kode verifikasi salah atau sudah tidak berlaku.");
+                    bonusClaimContainer.classList.add('hidden');
+                }
+            } catch (error) {
+                console.error("Error verifying code:", error);
+                showError("Terjadi kesalahan saat verifikasi.");
+            }
+        }
+        
+        verifyBonusBtn.addEventListener('click', verifyCodeAndShowBonus);
+
 
         // --- FIREBASE INITIALIZATION & DATA HANDLING ---
         async function initializeFirebase() {
@@ -370,35 +453,38 @@
                 const auth = getAuth(app);
                 
                 try {
-                     const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-                    if (initialAuthToken) {
-                        await signInWithCustomToken(auth, initialAuthToken);
-                    } else {
-                        await signInAnonymously(auth);
-                    }
-                    listenForDataChanges();
+                    await signInAnonymously(auth);
                 } catch (e) {
-                     console.error("Anonymous sign-in error:", e);
-                    if (e.code === 'auth/operation-not-allowed') {
-                        const msg = `
-                            <strong>Kesalahan Konfigurasi Firebase!</strong><br>
-                            Aplikasi tidak bisa menampilkan data karena metode login tamu (Anonymous) belum diaktifkan.<br><br>
-                            <strong>Langkah Wajib:</strong><br>
-                            1. Buka <strong>Firebase Console</strong> proyek Anda.<br>
-                            2. Pergi ke menu <strong>Authentication</strong> > tab <strong>Sign-in method</strong>.<br>
-                            3. Klik <strong>'Add new provider'</strong> dan pilih <strong>Anonymous</strong>.<br>
-                            4. <strong>Aktifkan (Enable)</strong> lalu simpan.
-                        `;
-                        showError(msg);
-                    } else {
-                        showError("Gagal menyambung sebagai tamu. Tampilan mungkin terbatas.");
-                    }
+                    handleAuthError(e);
                 }
+
+                if (auth.currentUser) {
+                    listenForDataChanges();
+                }
+
                 updateUIVisibility();
 
             } catch (e) { 
                 console.error("Firebase Init Error:", e);
                 showError(`Gagal inisialisasi Firebase: ${e.message}`);
+            }
+        }
+        
+        function handleAuthError(e) {
+            console.error("Authentication error:", e);
+            if (e.code === 'auth/operation-not-allowed') {
+                const msg = `
+                    <strong>Kesalahan Konfigurasi Firebase!</strong><br>
+                    Aplikasi tidak bisa menampilkan data karena metode login tamu (Anonymous) belum diaktifkan.<br><br>
+                    <strong>Langkah Wajib:</strong><br>
+                    1. Buka <strong>Firebase Console</strong> proyek Anda.<br>
+                    2. Pergi ke menu <strong>Authentication</strong> > tab <strong>Sign-in method</strong>.<br>
+                    3. Klik <strong>'Add new provider'</strong> dan pilih <strong>Anonymous</strong>.<br>
+                    4. <strong>Aktifkan (Enable)</strong> lalu simpan.
+                `;
+                showError(msg);
+            } else {
+                showError(`Gagal menyambung ke server: ${e.message}`);
             }
         }
 
@@ -422,7 +508,7 @@
                     processRawData(rawText);
                 } else {
                     statusIndicator.textContent = "Data di cloud kosong. Admin perlu mengunggah data.";
-                    processRawData(''); // Process empty data to clear the view
+                    processRawData('');
                 }
             }, (error) => {
                 console.error("Error listening to data:", error);
@@ -433,6 +519,33 @@
                 }
             });
         }
+        
+        function listenForCodeRequests() {
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+            const requestsCollection = collection(db, "artifacts", appId, "public", "data", "accessRequests");
+            const q = query(requestsCollection, where("createdAt", "!=", null));
+
+            if (unsubscribeFromCodeRequests) unsubscribeFromCodeRequests();
+
+            unsubscribeFromCodeRequests = onSnapshot(q, (snapshot) => {
+                adminCodeRequestsList.innerHTML = '';
+                if (snapshot.empty) {
+                    adminCodeRequestsList.innerHTML = '<p class="text-gray-500 text-center">Belum ada permintaan baru...</p>';
+                    return;
+                }
+                snapshot.forEach(doc => {
+                    const request = doc.data();
+                    const requestEl = document.createElement('div');
+                    requestEl.className = 'flex justify-between items-center bg-gray-50 p-2 rounded-md';
+                    requestEl.innerHTML = `
+                        <span><strong>${request.salesName}</strong> meminta akses</span>
+                        <span class="font-mono text-blue-600 bg-blue-100 px-2 py-1 rounded">${request.code}</span>
+                    `;
+                    adminCodeRequestsList.appendChild(requestEl);
+                });
+            });
+        }
+
 
         async function saveDataToFirestore() {
             const userRole = localStorage.getItem('userRole');
@@ -462,17 +575,11 @@
             }
         }
         
-        // --- CORE APPLICATION LOGIC ---
         function processRawData(rawText) {
             try {
                 hideError();
                 if (!rawText) {
                     fullData = [];
-                    filterContainer.classList.add('hidden');
-                    bonusVerificationContainer.classList.add('hidden');
-                    resultContainer.classList.add('hidden');
-                    omsetReportContainer.classList.add('hidden');
-                    // Ensure login button is shown if there's no data and user is logged out
                     updateUIVisibility(); 
                     return;
                 }
@@ -483,21 +590,12 @@
                 if (Object.values(indices).some(i=>i===-1)) throw new Error(`Data tidak valid! Kolom penting tidak ditemukan.`);
                 fullData.forEach(row => { row.indices = indices; }); 
                 
-                if (fullData.length > 0) {
-                    // **FIX**: Always show the default view containers as soon as data is loaded.
-                    if (filterContainer.classList.contains('hidden')) {
-                       setupDateFilters();
-                    }
-                    filterContainer.classList.remove('hidden');
-                    bonusVerificationContainer.classList.remove('hidden');
-                    
-                    // Now, determine which specific view (guest/admin) to show
-                    updateUIVisibility(); 
-                } else {
-                    filterContainer.classList.add('hidden');
-                    bonusVerificationContainer.classList.add('hidden');
-                    updateUIVisibility(); 
+                const userRole = localStorage.getItem('userRole');
+                if (userRole === 'admin' && !startDateFilter.value) {
+                    setupAdminDateFilters();
                 }
+                
+                updateUIVisibility();
 
             } catch (e) { 
                 showError(e.message); 
@@ -553,26 +651,7 @@
         endDateFilter.addEventListener('change', runAllReports);
         saveDataBtn.addEventListener('click', saveDataToFirestore);
         
-        verifyBonusBtn.addEventListener('click', () => {
-            const selectedSales = bonusSalesSelect.value;
-            if (!selectedSales) {
-                showError("Silakan pilih nama sales terlebih dahulu.");
-                return;
-            }
-            const enteredCode = verificationCodeInput.value.trim();
-            const correctCode = verificationCodes[selectedSales] || 'default_code_123';
-            if (enteredCode === correctCode) {
-                hideError();
-                renderBonusClaimReport(selectedSales);
-                bonusClaimContainer.classList.remove('hidden');
-                bonusClaimContainer.scrollIntoView({ behavior: 'smooth' });
-            } else {
-                showError(`Kode verifikasi untuk ${selectedSales} salah.`);
-                bonusClaimContainer.classList.add('hidden');
-            }
-        });
-
-        function setupDateFilters() {
+        function setupAdminDateFilters() {
             if (fullData.length === 0) return;
             const latestDate = new Date(Math.max.apply(null, fullData.map(row => row.date)));
             const firstDay = new Date(latestDate.getFullYear(), latestDate.getMonth(), 1);
@@ -649,7 +728,7 @@
                     renderBonusClaimReport(bonusSalesSelect.value);
                     bonusClaimContainer.classList.remove('hidden');
                 }
-            } else { 
+            } else { // Guest
                 verificationCodeWrapper.classList.remove('hidden');
                 verifyBonusBtn.classList.remove('hidden');
             }
@@ -896,4 +975,4 @@
         initializeFirebase();
     </script>
 </body>
-</ht
+</html>
