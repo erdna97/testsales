@@ -509,7 +509,7 @@
         
         authControls.logoutBtn.addEventListener('click', () => {
             localStorage.removeItem('userRole');
-            localStorage.removeItem('guestVerificationTimestamp');
+            localStorage.removeItem('guestSessionEndTime');
             localStorage.removeItem('verifiedSalesName');
             isPanelUnlocked = false; // Reset panel access on logout
             window.location.reload();
@@ -1562,7 +1562,7 @@
             return clonedElement;
         }
 
-        function exportElementToPDF(elementId, filename) {
+        function exportElementToPDF(elementId, filename, forceOrientation) {
             const elementToExport = document.getElementById(elementId);
             
             if (!elementToExport) {
@@ -1584,7 +1584,7 @@
                 const imgData = canvas.toDataURL('image/png');
                 const imgWidth = canvas.width;
                 const imgHeight = canvas.height;
-                const orientation = imgWidth > imgHeight ? 'l' : 'p';
+                const orientation = forceOrientation || (imgWidth > imgHeight ? 'l' : 'p');
                 
                 const { jsPDF } = window.jspdf;
                 const pdf = new jsPDF(orientation, 'pt', 'a4');
