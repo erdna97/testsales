@@ -6,6 +6,9 @@
     <title>Portal Laporan & Bonus Sales</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Libraries for PDF Export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -14,32 +17,29 @@
         .main-content {
             display: none; /* Hidden by default */
         }
-        .table-cell {
-            padding: 12px 16px;
+        .table-cell, .tidy-table-cell {
+            padding: 8px 12px;
             border-bottom: 1px solid #e2e8f0;
             text-align: right;
             white-space: nowrap;
         }
-        .header-cell {
+        .header-cell, .tidy-header-cell {
             padding: 12px 16px;
-            background-color: #f8fafc;
+            background-color: #f1f5f9;
             font-weight: 600;
             color: #475569;
             text-align: center;
-            position: sticky;
-            top: 0;
-            z-index: 20;
-            border-bottom: 2px solid #e2e8f0;
+            border-bottom: 2px solid #cbd5e1;
         }
-        .item-cell {
+        .item-cell, .tidy-item-cell {
             text-align: left;
             font-weight: 500;
             color: #1e293b;
         }
-        .data-row:nth-child(even) {
+        .data-row:nth-child(even), .tidy-data-row:nth-child(even) {
             background-color: #f8fafc;
         }
-        .data-row:hover {
+        .data-row:hover, .tidy-data-row:hover {
             background-color: #eff6ff;
         }
         .grand-total-row {
@@ -55,23 +55,27 @@
             position: sticky;
             left: 0;
             z-index: 10;
-            background-color: #fff;
+            background-color: #f8fafc;
             border-right: 1px solid #e2e8f0;
         }
-        .data-row:nth-child(even) .sticky-col {
+        .data-row .sticky-col, .tidy-data-row .sticky-col {
+           background-color: #fff;
+        }
+        .data-row:nth-child(even) .sticky-col, .tidy-data-row:nth-child(even) .sticky-col {
             background-color: #f8fafc;
         }
-        .data-row:hover .sticky-col {
+        .data-row:hover .sticky-col, .tidy-data-row:hover .sticky-col {
             background-color: #eff6ff;
         }
         .grand-total-row .sticky-col {
             background-color: #e2e8f0;
         }
-        .header-cell.sticky-col {
-            z-index: 30;
-        }
         .modal-overlay {
             transition: opacity 0.3s ease;
+        }
+        [contenteditable]:focus {
+            outline: 2px solid #4f46e5;
+            background-color: #eef2ff;
         }
     </style>
 </head>
@@ -92,7 +96,7 @@
         <div class="container mx-auto p-4 md:p-8">
             <header class="text-center mb-8 relative">
                 <h1 class="text-3xl md:text-4xl font-bold text-slate-800">Portal Laporan Penjualan</h1>
-                <div id="auth-container" class="absolute top-0 right-0">
+                <div id="auth-container" class="absolute top-0 right-0 flex items-center gap-4">
                     <button id="logout-btn" class="hidden bg-red-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-600 transition-colors text-sm">Logout</button>
                 </div>
             </header>
@@ -106,21 +110,91 @@
                         <p class="text-gray-500 text-center">Belum ada permintaan baru...</p>
                     </div>
                 </div>
-                <div class="bg-white p-6 rounded-xl shadow-lg mb-8">
-                    <div class="flex justify-between items-center mb-4">
-                        <h2 class="text-2xl font-semibold text-slate-700">Langkah 1: Masukkan & Proses Data</h2>
-                        <div id="status-indicator" class="text-sm text-gray-500 px-3 py-1 rounded-full bg-gray-100 transition-opacity duration-300 opacity-0"></div>
+
+                <!-- Admin Password Gate -->
+                <div id="password-gate-container" class="bg-white p-6 rounded-xl shadow-lg mb-8 text-center">
+                    <h3 class="text-xl font-semibold text-slate-700 mb-4">Akses Panel Edit Data</h3>
+                    <p class="text-gray-600 mb-4">Untuk keamanan, masukkan kata sandi akses dinamis.</p>
+                    <div class="max-w-xs mx-auto">
+                         <label for="dynamic-admin-password" class="block text-sm font-medium text-gray-700">Password Akses Admin</label>
+                         <input type="password" id="dynamic-admin-password" class="mt-1 w-full border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md p-2">
+                         <p id="password-gate-error" class="text-red-500 text-sm h-4 mt-2"></p>
+                         <button id="unlock-panel-btn" class="w-full bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 transition-colors mt-4">Buka Panel</button>
                     </div>
-                    <textarea id="raw-data-input" rows="12" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 font-mono text-sm" placeholder="Tempel data mentah dari spreadsheet di sini..."></textarea>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                        <button id="save-data-btn" class="w-full bg-purple-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-purple-700 transition-colors flex items-center justify-center gap-2 shadow-sm hover:shadow-md">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" /></svg>
-                            Simpan Data ke Cloud
-                        </button>
-                        <button id="process-btn" class="w-full bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 shadow-sm hover:shadow-md">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                            Proses Laporan dari Tampilan
-                        </button>
+                </div>
+                
+                <!-- Secure Admin Panel -->
+                <div id="secure-admin-panel" class="hidden">
+                    <div class="bg-white p-6 rounded-xl shadow-lg mb-8">
+                        <!-- Smart Filter Section -->
+                        <div class="border-b pb-4 mb-4">
+                            <h3 class="text-xl font-semibold text-slate-700 mb-3">Filter Cerdas & Edit Data</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+                                <div>
+                                    <label for="filter-sales" class="text-sm font-medium text-gray-700">Nama Sales</label>
+                                    <select id="filter-sales" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                                        <option value="">Semua Sales</option>
+                                    </select>
+                                </div>
+                                 <div>
+                                    <label for="filter-kode" class="text-sm font-medium text-gray-700">Kode Daerah</label>
+                                    <select id="filter-kode" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                                        <option value="">Semua Kode</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="filter-gol" class="text-sm font-medium text-gray-700">Golongan</label>
+                                    <select id="filter-gol" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                                        <option value="">Semua Gol</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="filter-start-date" class="text-sm font-medium text-gray-700">Dari Tanggal</label>
+                                    <input type="date" id="filter-start-date" class="mt-1 w-full border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md p-2">
+                                </div>
+                                <div>
+                                    <label for="filter-end-date" class="text-sm font-medium text-gray-700">Sampai Tanggal</label>
+                                    <input type="date" id="filter-end-date" class="mt-1 w-full border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md p-2">
+                                </div>
+                            </div>
+                            <div class="flex gap-4 mt-4">
+                                 <button id="apply-smart-filter-btn" class="w-full bg-cyan-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-cyan-700 transition-colors">Terapkan Filter & Rapikan</button>
+                                 <button id="reset-raw-data-btn" class="w-full bg-gray-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors">Tampilkan Semua & Reset</button>
+                            </div>
+                        </div>
+                         <!-- Tidy Data View -->
+                        <div id="tidy-data-container" class="mb-6">
+                            <h3 class="text-xl font-semibold text-slate-700 mb-3">Tampilan Data Rapi (Hasil Filter) - Klik Sel untuk Mengedit</h3>
+                            <div class="bg-gray-50 rounded-xl shadow-inner overflow-x-auto" style="max-height: 50vh;">
+                               <table id="tidy-data-table" class="w-full border-collapse text-sm"></table>
+                            </div>
+                        </div>
+                        
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="text-2xl font-semibold text-slate-700">Sumber Data Mentah (Final)</h2>
+                             <div class="flex items-center gap-2">
+                                <button id="manual-backup-btn" class="bg-yellow-500 text-white font-semibold py-1 px-3 rounded-lg hover:bg-yellow-600 transition-colors text-sm">Backup Data Saat Ini</button>
+                                <button id="backup-btn" class="bg-gray-600 text-white p-2 rounded-full hover:bg-gray-700 transition-colors">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                      <path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z" />
+                                      <path fill-rule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clip-rule="evenodd" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                        <textarea id="raw-data-input" rows="15" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 font-mono text-sm" placeholder="Tempel data mentah dari spreadsheet di sini..."></textarea>
+                        <div class="flex justify-between items-center mt-4">
+                             <div id="status-indicator" class="text-sm text-gray-500 px-3 py-1 rounded-full bg-gray-100 transition-opacity duration-300 opacity-0"></div>
+                             <div class="flex gap-4">
+                                <button id="process-data-btn" class="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-blue-700 transition-colors">
+                                    Proses Data Mentah
+                                </button>
+                                <button id="save-data-btn" class="bg-purple-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-purple-700 transition-colors flex items-center justify-center gap-2 shadow-sm hover:shadow-md">
+                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" /></svg>
+                                     Simpan ke Cloud
+                                </button>
+                             </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -138,18 +212,34 @@
                 </div>
             </div>
 
+            <div id="combined-export-container" class="hidden my-8 text-center">
+                 <button id="export-combined-pdf" class="bg-green-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-green-700 transition-colors text-base">Gabungkan Laporan & Export ke PDF</button>
+            </div>
+
             <!-- LAPORAN PENJUALAN (Admin Only) -->
             <div id="result-container" class="hidden">
-                 <h2 id="report-title-1" class="text-2xl font-semibold text-slate-700 mb-4 text-center"></h2>
-                 <div class="bg-white rounded-xl shadow-lg overflow-x-auto" style="max-height: 70vh;">
+                 <div class="flex justify-between items-center mb-4">
+                    <h2 id="report-title-1" class="text-2xl font-semibold text-slate-700">Laporan Penjualan</h2>
+                    <div class="flex gap-2">
+                        <button id="export-sales-pdf" class="bg-red-500 text-white font-semibold py-1 px-3 rounded-lg hover:bg-red-600 transition-colors text-sm">Export ke PDF</button>
+                    </div>
+                 </div>
+                 <div id="sales-report-printable" class="bg-white rounded-xl shadow-lg overflow-x-auto p-4" style="max-height: 70vh;">
+                    <h2 id="report-title-1-pdf" class="text-2xl font-semibold text-slate-700 mb-4 text-center"></h2>
                     <table id="result-table" class="w-full border-collapse text-sm"></table>
                  </div>
             </div>
 
             <!-- LAPORAN OMSET (Admin Only) -->
             <div id="omset-report-container" class="hidden mt-12">
-                 <h2 id="report-title-2" class="text-2xl font-semibold text-slate-700 mb-4 text-center"></h2>
-                 <div class="bg-white rounded-xl shadow-lg overflow-x-auto">
+                 <div class="flex justify-between items-center mb-4">
+                    <h2 id="report-title-2" class="text-2xl font-semibold text-slate-700">Laporan Omset</h2>
+                     <div class="flex gap-2">
+                        <button id="export-omset-pdf" class="bg-red-500 text-white font-semibold py-1 px-3 rounded-lg hover:bg-red-600 transition-colors text-sm">Export ke PDF</button>
+                    </div>
+                 </div>
+                 <div id="omset-report-printable" class="bg-white rounded-xl shadow-lg overflow-x-auto p-4">
+                    <h2 id="report-title-2-pdf" class="text-2xl font-semibold text-slate-700 mb-4 text-center"></h2>
                     <table id="omset-report-table" class="w-full border-collapse text-sm"></table>
                  </div>
             </div>
@@ -168,8 +258,8 @@
                              <input type="text" id="verification-code-input" class="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 sm:text-sm" placeholder="Minta kode dari admin...">
                              <button id="request-code-btn" class="w-full bg-sky-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-sky-600 transition-colors whitespace-nowrap">Minta Kode</button>
                          </div>
-                         <p id="request-code-status" class="text-sm text-gray-500 mt-1 h-4"></p>
                     </div>
+                    <p id="request-code-status" class="text-sm text-center text-gray-500 mt-1 h-6"></p>
                     <button id="verify-bonus-btn" class="w-full bg-green-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2 shadow-sm hover:shadow-md">
                         Verifikasi & Tampilkan Bonus
                     </button>
@@ -178,7 +268,12 @@
 
             <!-- LAPORAN KLAIM BONUS -->
             <div id="bonus-claim-container" class="hidden mt-8">
-                <div id="bonus-claim-report" class="bg-white p-6 md:p-8 rounded-xl shadow-lg max-w-4xl mx-auto"></div>
+                <div id="bonus-claim-report" class="bg-white p-6 md:p-8 rounded-xl shadow-lg max-w-4xl mx-auto">
+                    <!-- Bonus Report content will be injected here -->
+                </div>
+                 <div class="max-w-4xl mx-auto text-center mt-4">
+                    <button id="export-bonus-pdf" class="bg-red-500 text-white font-semibold py-2 px-6 rounded-lg hover:bg-red-600 transition-colors text-sm">Export ke PDF</button>
+                 </div>
             </div>
         </div>
     </div>
@@ -203,18 +298,44 @@
         </div>
     </div>
 
-    <div id="error-message" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative mt-4" role="alert"></div>
+     <!-- BACKUP MANAGER MODAL -->
+    <div id="backup-modal" class="fixed inset-0 bg-black bg-opacity-60 modal-overlay flex justify-center items-start p-4 hidden">
+        <div class="bg-white rounded-lg shadow-2xl mt-8 w-full max-w-4xl">
+            <div class="p-4 border-b flex justify-between items-center">
+                 <h2 class="text-2xl font-bold text-slate-800">Manajer Backup</h2>
+                 <button id="backup-close-btn" class="text-gray-400 hover:text-gray-800 text-3xl font-bold">&times;</button>
+            </div>
+            <div id="backup-list" class="p-4 space-y-3 max-h-[70vh] overflow-y-auto">
+                 <p class="text-center text-gray-500">Memuat backup...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONFIRMATION MODAL (Generic) -->
+    <div id="confirm-modal" class="fixed inset-0 bg-black bg-opacity-60 modal-overlay flex justify-center items-center p-4 hidden">
+        <div class="bg-white rounded-lg shadow-2xl p-8 w-full max-w-sm text-center">
+            <h2 id="confirm-title" class="text-xl font-bold text-slate-800 mb-4">Konfirmasi</h2>
+            <p id="confirm-message" class="text-gray-600 mb-6">Apakah Anda yakin?</p>
+            <div class="flex gap-4">
+                <button id="confirm-yes-btn" class="w-full bg-red-600 text-white font-semibold py-2 px-5 rounded-lg hover:bg-red-700 transition-colors">Ya</button>
+                <button id="confirm-no-btn" class="w-full bg-gray-200 text-gray-700 font-semibold py-2 px-5 rounded-lg hover:bg-gray-300 transition-colors">Batal</button>
+            </div>
+        </div>
+    </div>
+
+
+    <div id="error-message" class="hidden fixed bottom-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg z-50 shadow-lg" role="alert"></div>
 
     <script type="module">
         // Import Firebase modules
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot, collection, addDoc, query, where, getDocs, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, onSnapshot, collection, addDoc, query, where, getDocs, deleteDoc, serverTimestamp, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // DOM Elements
         const initialLoginContainer = document.getElementById('initial-login-container');
         const mainAppContainer = document.getElementById('main-app-container');
-        const processBtn = document.getElementById('process-btn');
+        const processDataBtn = document.getElementById('process-data-btn');
         const saveDataBtn = document.getElementById('save-data-btn');
         const rawDataInput = document.getElementById('raw-data-input');
         const resultContainer = document.getElementById('result-container');
@@ -224,6 +345,7 @@
         const errorMessage = document.getElementById('error-message');
         const bonusVerificationContainer = document.getElementById('bonus-verification-container');
         const bonusSalesSelect = document.getElementById('bonus-sales-select');
+        const verificationCodeWrapper = document.getElementById('verification-code-wrapper');
         const verificationCodeInput = document.getElementById('verification-code-input');
         const requestCodeBtn = document.getElementById('request-code-btn');
         const requestCodeStatus = document.getElementById('request-code-status');
@@ -236,11 +358,28 @@
         const endDateFilter = document.getElementById('end-date-filter');
         const adminViewContainer = document.getElementById('admin-view-container');
         const adminCodeRequestsList = document.getElementById('admin-code-requests-list');
+        const filterSalesSelect = document.getElementById('filter-sales');
+        const filterStartDate = document.getElementById('filter-start-date');
+        const filterEndDate = document.getElementById('filter-end-date');
+        const filterKodeInput = document.getElementById('filter-kode');
+        const filterGolInput = document.getElementById('filter-gol');
+        const applySmartFilterBtn = document.getElementById('apply-smart-filter-btn');
+        const resetRawDataBtn = document.getElementById('reset-raw-data-btn');
+        const tidyDataTable = document.getElementById('tidy-data-table');
+        const passwordGateContainer = document.getElementById('password-gate-container');
+        const secureAdminPanel = document.getElementById('secure-admin-panel');
+        const dynamicAdminPasswordInput = document.getElementById('dynamic-admin-password');
+        const unlockPanelBtn = document.getElementById('unlock-panel-btn');
+        const passwordGateError = document.getElementById('password-gate-error');
+        const manualBackupBtn = document.getElementById('manual-backup-btn');
+        const exportCombinedContainer = document.getElementById('combined-export-container');
+        const exportCombinedBtn = document.getElementById('export-combined-pdf');
         
         const authControls = {
             salesLoginBtn: document.getElementById('sales-login-btn'),
             adminLoginBtn: document.getElementById('admin-login-btn'),
-            logoutBtn: document.getElementById('logout-btn')
+            logoutBtn: document.getElementById('logout-btn'),
+            backupBtn: document.getElementById('backup-btn')
         };
         const adminLoginModal = {
             container: document.getElementById('admin-login-modal'),
@@ -250,45 +389,70 @@
             closeBtn: document.getElementById('admin-close-btn'),
             error: document.getElementById('login-error')
         };
+        const backupModal = {
+            container: document.getElementById('backup-modal'),
+            list: document.getElementById('backup-list'),
+            closeBtn: document.getElementById('backup-close-btn')
+        };
+        const confirmModal = {
+            container: document.getElementById('confirm-modal'),
+            title: document.getElementById('confirm-title'),
+            message: document.getElementById('confirm-message'),
+            yesBtn: document.getElementById('confirm-yes-btn'),
+            noBtn: document.getElementById('confirm-no-btn'),
+        };
         
         // Global state
         let fullData = []; 
         let finalBonusData = null;
         let db;
+        let auth;
         let unsubscribeFromData, unsubscribeFromCodeRequests;
+        let masterRawData = '';
+        let headersFromMaster = [];
+        let isPanelUnlocked = false;
+        let isGuestVerified = false;
+        let guestSessionInterval;
+        let codeTimers = {};
+
 
         const ADMIN_USERNAME = "andre";
         const ADMIN_PASSWORD = "@#!Aw231";
-        const CODE_REQUEST_COOLDOWN = 10 * 60 * 1000; // 10 minutes
+        const CODE_REQUEST_COOLDOWN = 10 * 60 * 1000;
+        const GUEST_SESSION_DURATION = 10 * 60 * 1000; // 10 minutes
 
         const targetBonusData = {
             'JUNTAK': { 'BAUT':{t:[35e6,5e7,8e7],b:[.005,.0075,.01]},'BR':{t:[55e7,7e8,85e7],b:[.0009,.0015,.002]},'PLAFONPVC':{t:[1e8,12e7,15e7],b:[.005,.0075,.01]},'SEMEN':{t:[6e8,8e8,1e9],b:[.0009,.0015,.002]},'SPANDEK':{t:[12e8,14e8,16e8],b:[.0009,.0015,.002]}},
             'SOFIAN': { 'BAUT':{t:[3e7,4e7,5e7],b:[.005,.0075,.01]},'BR':{t:[45e7,55e7,65e7],b:[.0009,.0015,.002]},'PLAFONPVC':{t:[8e7,1e8,12e7],b:[.005,.0075,.01]},'SEMEN':{t:[45e7,55e7,7e8],b:[.0009,.0015,.002]},'SPANDEK':{t:[1e9,12e8,15e8],b:[.0009,.0015,.002]}},
             'DEFAULT': {'BAUT':{t:[25e6,35e6,5e7],b:[.005,.0075,.01]},'BR':{t:[2e8,3e8,5e8],b:[.0009,.0015,.002]},'PLAFONPVC':{t:[35e6,45e6,6e7],b:[.005,.0075,.01]},'SEMEN':{t:[2e8,3e8,5e8],b:[.0009,.0015,.002]},'SPANDEK':{t:[5e8,6e8,75e7],b:[.0009,.0015,.002]}}
         };
-
+        
+        const formatNumber = (number) => new Intl.NumberFormat('id-ID').format(number);
+        const formatCurrency = (number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(number);
         const formatDateForInput = (date) => {
             const year = date.getFullYear();
             const month = (date.getMonth() + 1).toString().padStart(2, '0');
             const day = date.getDate().toString().padStart(2, '0');
             return `${year}-${month}-${day}`;
         };
-        function showError(htmlMessage) {
+        function showError(htmlMessage, duration = 5000) {
             errorMessage.innerHTML = htmlMessage;
             errorMessage.classList.remove('hidden');
+            setTimeout(() => errorMessage.classList.add('hidden'), duration);
         }
         function hideError() { errorMessage.classList.add('hidden'); }
         function showStatus(message, isSuccess = false, duration = 3000) {
             statusIndicator.textContent = message;
             statusIndicator.classList.remove('opacity-0');
             statusIndicator.className = `text-sm px-3 py-1 rounded-full transition-all duration-300 ${isSuccess ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`;
-            if(isSuccess) {
+            if(duration > 0) {
                 setTimeout(() => statusIndicator.classList.add('opacity-0'), duration);
             }
         }
 
         function updateUIVisibility() {
             const userRole = localStorage.getItem('userRole');
+            exportCombinedContainer.classList.add('hidden');
 
             if (userRole) {
                 initialLoginContainer.style.display = 'none';
@@ -297,10 +461,20 @@
 
                 if (userRole === 'admin') {
                     adminViewContainer.classList.remove('hidden');
+                    if (isPanelUnlocked) {
+                         passwordGateContainer.classList.add('hidden');
+                         secureAdminPanel.classList.remove('hidden');
+                    } else {
+                        passwordGateContainer.classList.remove('hidden');
+                        secureAdminPanel.classList.add('hidden');
+                    }
+                    
                     filterContainer.classList.remove('hidden');
                     bonusVerificationContainer.classList.remove('hidden');
-                    listenForCodeRequests(); // Admin listens for requests
+                    listenForCodeRequests(); 
+
                 } else { // guest
+                    checkGuestSession();
                     adminViewContainer.classList.add('hidden');
                     filterContainer.classList.remove('hidden');
                     bonusVerificationContainer.classList.remove('hidden');
@@ -309,7 +483,7 @@
                 initialLoginContainer.style.display = 'flex';
                 mainAppContainer.style.display = 'none';
                 authControls.logoutBtn.classList.add('hidden');
-                if (unsubscribeFromCodeRequests) unsubscribeFromCodeRequests(); // Stop listening if logged out
+                if (unsubscribeFromCodeRequests) unsubscribeFromCodeRequests();
             }
             
             if (fullData.length > 0 && userRole) {
@@ -335,7 +509,10 @@
         
         authControls.logoutBtn.addEventListener('click', () => {
             localStorage.removeItem('userRole');
-            updateUIVisibility();
+            localStorage.removeItem('guestVerificationTimestamp');
+            localStorage.removeItem('verifiedSalesName');
+            isPanelUnlocked = false; // Reset panel access on logout
+            window.location.reload();
         });
         
         adminLoginModal.closeBtn.addEventListener('click', () => {
@@ -355,7 +532,18 @@
             }
         });
 
-        // --- CODE REQUEST & VERIFICATION LOGIC ---
+        unlockPanelBtn.addEventListener('click', () => {
+            const now = new Date();
+            const correctPassword = (now.getHours() * now.getMinutes()).toString();
+            if (dynamicAdminPasswordInput.value === correctPassword) {
+                isPanelUnlocked = true;
+                updateUIVisibility();
+                passwordGateError.textContent = '';
+            } else {
+                passwordGateError.textContent = 'Password salah.';
+            }
+        });
+
         requestCodeBtn.addEventListener('click', async () => {
             const selectedSales = bonusSalesSelect.value;
             if (!selectedSales) {
@@ -407,22 +595,39 @@
             try {
                 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
                 const requestsCollection = collection(db, "artifacts", appId, "public", "data", "accessRequests");
-                const q = query(requestsCollection, where("salesName", "==", selectedSales), where("code", "==", enteredCode));
+                
+                const q = query(requestsCollection, 
+                    where("salesName", "==", selectedSales), 
+                    where("code", "==", enteredCode)
+                );
                 
                 const querySnapshot = await getDocs(q);
                 
-                if (!querySnapshot.empty) {
+                const tenMinutesAgo = new Date(Date.now() - GUEST_SESSION_DURATION);
+                let validDoc = null;
+                let creationTime = null;
+
+                querySnapshot.forEach(doc => {
+                    const request = doc.data();
+                    if (request.createdAt && request.createdAt.toDate() >= tenMinutesAgo) {
+                        validDoc = doc;
+                        creationTime = request.createdAt.toDate().getTime();
+                    }
+                });
+
+                if (validDoc) {
                     hideError();
+                    localStorage.setItem('guestSessionEndTime', (creationTime + GUEST_SESSION_DURATION).toString());
+                    localStorage.setItem('verifiedSalesName', selectedSales);
+                    isGuestVerified = true;
+                    updateGuestSessionUI();
+                    
                     renderBonusClaimReport(selectedSales);
                     bonusClaimContainer.classList.remove('hidden');
                     bonusClaimContainer.scrollIntoView({ behavior: 'smooth' });
-                    
-                    // Delete the used code
-                    querySnapshot.forEach(doc => {
-                        deleteDoc(doc.ref);
-                    });
+
                 } else {
-                    showError("Kode verifikasi salah atau sudah tidak berlaku.");
+                    showError("Kode verifikasi salah atau sudah kedaluwarsa.");
                     bonusClaimContainer.classList.add('hidden');
                 }
             } catch (error) {
@@ -430,11 +635,66 @@
                 showError("Terjadi kesalahan saat verifikasi.");
             }
         }
+
+        function checkGuestSession() {
+            const sessionEndTime = localStorage.getItem('guestSessionEndTime');
+            if (sessionEndTime) {
+                if (Date.now() < parseInt(sessionEndTime, 10)) {
+                    isGuestVerified = true;
+                    updateGuestSessionUI();
+                } else {
+                    isGuestVerified = false;
+                    localStorage.removeItem('guestSessionEndTime');
+                    localStorage.removeItem('verifiedSalesName');
+                    updateGuestSessionUI();
+                }
+            } else {
+                 isGuestVerified = false;
+                 updateGuestSessionUI();
+            }
+        }
+
+        function updateGuestSessionUI() {
+            if (isGuestVerified) {
+                const verifiedSales = localStorage.getItem('verifiedSalesName');
+                verificationCodeWrapper.style.display = 'none';
+                verifyBonusBtn.style.display = 'none';
+                bonusSalesSelect.value = verifiedSales;
+                bonusSalesSelect.disabled = true;
+
+                const endTime = parseInt(localStorage.getItem('guestSessionEndTime'), 10);
+
+                if(guestSessionInterval) clearInterval(guestSessionInterval);
+
+                guestSessionInterval = setInterval(() => {
+                    const timeLeft = endTime - Date.now();
+                    if (timeLeft <= 0) {
+                        clearInterval(guestSessionInterval);
+                        isGuestVerified = false;
+                        localStorage.removeItem('guestSessionEndTime');
+                        localStorage.removeItem('verifiedSalesName');
+                        requestCodeStatus.innerHTML = '';
+                        bonusClaimContainer.classList.add('hidden');
+                        updateGuestSessionUI();
+                    } else {
+                        const minutes = Math.floor((timeLeft / 1000 / 60) % 60);
+                        const seconds = Math.floor((timeLeft / 1000) % 60);
+                        requestCodeStatus.innerHTML = `Sesi untuk <span class="font-bold">${verifiedSales}</span> akan berakhir dalam <span class="font-bold text-green-600">${minutes}:${seconds.toString().padStart(2, '0')}</span>.`;
+                    }
+                }, 1000);
+            } else {
+                verificationCodeWrapper.style.display = 'block';
+                verifyBonusBtn.style.display = 'flex';
+                bonusSalesSelect.disabled = false;
+                bonusSalesSelect.value = '';
+                requestCodeStatus.innerHTML = '';
+                 if(guestSessionInterval) clearInterval(guestSessionInterval);
+            }
+        }
         
         verifyBonusBtn.addEventListener('click', verifyCodeAndShowBonus);
 
 
-        // --- FIREBASE INITIALIZATION & DATA HANDLING ---
         async function initializeFirebase() {
             try {
                 const firebaseConfig = typeof __firebase_config !== 'undefined' 
@@ -450,23 +710,33 @@
 
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
-                const auth = getAuth(app);
-                
-                try {
+                auth = getAuth(app);
+
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    try {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } catch (e) {
+                        console.warn("Custom token sign-in failed, falling back to anonymous.", e.message);
+                        await signInAnonymously(auth);
+                    }
+                } else {
                     await signInAnonymously(auth);
-                } catch (e) {
-                    handleAuthError(e);
                 }
+                
+                onAuthStateChanged(auth, (user) => {
+                     if (user) {
+                        console.log("User authenticated with UID:", user.uid);
+                        listenForDataChanges();
+                        updateUIVisibility();
+                    } else {
+                        console.error("Critical: No user is signed in after auth attempts.");
+                        updateUIVisibility();
+                    }
+                });
 
-                if (auth.currentUser) {
-                    listenForDataChanges();
-                }
-
-                updateUIVisibility();
-
-            } catch (e) { 
-                console.error("Firebase Init Error:", e);
-                showError(`Gagal inisialisasi Firebase: ${e.message}`);
+            } catch (e) {
+                console.error("Firebase Init or Auth Error:", e);
+                handleAuthError(e);
             }
         }
         
@@ -489,7 +759,11 @@
         }
 
         function listenForDataChanges() {
-            showStatus("Menghubungkan ke server...");
+            if (!auth.currentUser) {
+                console.warn("Attempted to listen for data but user is not authenticated.");
+                return;
+            }
+            showStatus("Menghubungkan ke server...", false, 0);
             const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
             const dataRef = doc(db, "artifacts", appId, "public", "data", "salesData", "rawData");
             
@@ -501,19 +775,18 @@
                 hideError(); 
                 if (docSnap.exists() && docSnap.data().rawText) {
                     showStatus("Data terbaru diterima!", true);
-                    const rawText = docSnap.data().rawText;
-                    if (rawDataInput.value !== rawText) {
-                         rawDataInput.value = rawText;
+                    const incomingData = docSnap.data().rawText;
+                    if (incomingData !== rawDataInput.value) {
+                       processRawData(incomingData);
                     }
-                    processRawData(rawText);
                 } else {
-                    statusIndicator.textContent = "Data di cloud kosong. Admin perlu mengunggah data.";
+                    showStatus("Data di cloud kosong. Admin perlu mengunggah data.", false, 5000);
                     processRawData('');
                 }
             }, (error) => {
                 console.error("Error listening to data:", error);
                 if (error.code === 'permission-denied') {
-                     showError('<strong>Gagal Memuat Data:</strong> Izin ditolak. Harap pastikan login anonim aktif di Firebase Console.');
+                     showError('<strong>Gagal Memuat Data:</strong> Izin ditolak. Pastikan aturan keamanan Firestore memperbolehkan pembacaan publik atau Anda telah login dengan benar.');
                 } else {
                     showError("Gagal mendapatkan data real-time: " + error.message);
                 }
@@ -523,25 +796,57 @@
         function listenForCodeRequests() {
             const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
             const requestsCollection = collection(db, "artifacts", appId, "public", "data", "accessRequests");
-            const q = query(requestsCollection, where("createdAt", "!=", null));
+            const q = query(requestsCollection, orderBy("createdAt", "desc"));
 
             if (unsubscribeFromCodeRequests) unsubscribeFromCodeRequests();
 
             unsubscribeFromCodeRequests = onSnapshot(q, (snapshot) => {
                 adminCodeRequestsList.innerHTML = '';
+                 // Clear old timers
+                Object.values(codeTimers).forEach(clearInterval);
+                codeTimers = {};
+
                 if (snapshot.empty) {
                     adminCodeRequestsList.innerHTML = '<p class="text-gray-500 text-center">Belum ada permintaan baru...</p>';
                     return;
                 }
-                snapshot.forEach(doc => {
-                    const request = doc.data();
+                snapshot.forEach(docSnap => {
+                    const request = docSnap.data();
                     const requestEl = document.createElement('div');
                     requestEl.className = 'flex justify-between items-center bg-gray-50 p-2 rounded-md';
-                    requestEl.innerHTML = `
-                        <span><strong>${request.salesName}</strong> meminta akses</span>
-                        <span class="font-mono text-blue-600 bg-blue-100 px-2 py-1 rounded">${request.code}</span>
-                    `;
+
+                    const textContainer = document.createElement('div');
+                    textContainer.innerHTML = `<span><strong>${request.salesName}</strong> meminta akses</span>`;
+                    
+                    const codeContainer = document.createElement('div');
+                    codeContainer.className = 'flex items-center gap-2';
+                    codeContainer.innerHTML = `<span class="font-mono text-blue-600 bg-blue-100 px-2 py-1 rounded">${request.code}</span>`;
+                    
+                    const timerSpan = document.createElement('span');
+                    timerSpan.id = `timer-${docSnap.id}`;
+                    timerSpan.className = 'text-xs text-gray-500 font-mono';
+                    codeContainer.appendChild(timerSpan);
+
+                    requestEl.appendChild(textContainer);
+                    requestEl.appendChild(codeContainer);
                     adminCodeRequestsList.appendChild(requestEl);
+
+                    if (request.createdAt) {
+                        const endTime = request.createdAt.toDate().getTime() + GUEST_SESSION_DURATION;
+                        
+                        codeTimers[docSnap.id] = setInterval(() => {
+                            const timeLeft = endTime - Date.now();
+                            if(timeLeft <= 0) {
+                                timerSpan.textContent = '(Kedaluwarsa)';
+                                timerSpan.classList.add('text-red-500');
+                                clearInterval(codeTimers[docSnap.id]);
+                            } else {
+                                const minutes = Math.floor((timeLeft / 1000 / 60) % 60);
+                                const seconds = Math.floor((timeLeft / 1000) % 60);
+                                timerSpan.textContent = `(${minutes}:${seconds.toString().padStart(2, '0')})`;
+                            }
+                        }, 1000);
+                    }
                 });
             });
         }
@@ -550,20 +855,23 @@
         async function saveDataToFirestore() {
             const userRole = localStorage.getItem('userRole');
             if (userRole !== 'admin') { 
-                showError("Operasi ini hanya untuk admin. Silakan login terlebih dahulu."); 
+                showError("Operasi ini hanya untuk admin."); 
                 return; 
             }
-            if (rawDataInput.value.trim() === "") { 
+            
+            const currentTextInTextarea = rawDataInput.value;
+            if (currentTextInTextarea.trim() === "") { 
                 showError("Data mentah tidak boleh kosong untuk disimpan."); 
                 return; 
             }
             
-            showStatus("Menyimpan...");
+            showStatus("Menyimpan...", false, 0);
+
             const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
             const dataRef = doc(db, "artifacts", appId, "public", "data", "salesData", "rawData");
             const dataToSave = { 
-                rawText: rawDataInput.value,
-                lastUpdated: new Date()
+                rawText: currentTextInTextarea,
+                lastUpdated: serverTimestamp()
             };
 
             try {
@@ -578,16 +886,20 @@
         function processRawData(rawText) {
             try {
                 hideError();
+                rawDataInput.value = rawText;
+                
                 if (!rawText) {
                     fullData = [];
                     updateUIVisibility(); 
                     return;
                 }
-                const { headers, data, dateIndex } = parseData(rawText);
+                const { headers, data } = parseData(rawText);
                 fullData = data; 
+                headersFromMaster = headers;
+                
                 const qtyCol="qtykecil", amountCol="jumlah", productCol="gol", salesCol="pof";
-                const indices = { qty: headers.indexOf(qtyCol), amount: headers.indexOf(amountCol), product: headers.indexOf(productCol), sales: headers.indexOf(salesCol), date: dateIndex };
-                if (Object.values(indices).some(i=>i===-1)) throw new Error(`Data tidak valid! Kolom penting tidak ditemukan.`);
+                const indices = { qty: headers.indexOf(qtyCol), amount: headers.indexOf(amountCol), product: headers.indexOf(productCol), sales: headers.indexOf(salesCol), date: headers.indexOf('tgl') };
+                if (Object.values(indices).some(i=>i===-1)) throw new Error(`Data tidak valid! Kolom penting tidak ditemukan: ${qtyCol}, ${amountCol}, ${productCol}, ${salesCol}, tgl`);
                 fullData.forEach(row => { row.indices = indices; }); 
                 
                 const userRole = localStorage.getItem('userRole');
@@ -595,6 +907,7 @@
                     setupAdminDateFilters();
                 }
                 
+                populateDynamicFilters();
                 updateUIVisibility();
 
             } catch (e) { 
@@ -602,23 +915,121 @@
                 console.error(e);
             }
         }
+        
+        processDataBtn.addEventListener('click', () => {
+             showStatus("Memproses data dari textarea...", true, 2000);
+             processRawData(rawDataInput.value);
+        });
 
 
+        function populateDynamicFilters() {
+            if (fullData.length === 0 || headersFromMaster.length === 0) return;
+            
+            const salesColIndex = headersFromMaster.indexOf('pof');
+            const kodeColIndex = headersFromMaster.indexOf('kode');
+            const golColIndex = headersFromMaster.indexOf('gol');
+
+            const salesSet = new Set();
+            const kodeSet = new Set();
+            const golSet = new Set();
+
+            fullData.forEach(row => {
+                if(salesColIndex > -1) salesSet.add(row.cells[salesColIndex]?.trim().toUpperCase());
+                if(kodeColIndex > -1) kodeSet.add(row.cells[kodeColIndex]?.trim().toUpperCase());
+                if(golColIndex > -1) golSet.add(row.cells[golColIndex]?.trim().toUpperCase());
+            });
+
+            const populateSelect = (selectElement, itemSet, defaultOptionText) => {
+                const currentValue = selectElement.value;
+                selectElement.innerHTML = `<option value="">${defaultOptionText}</option>`;
+                 Array.from(itemSet).sort().forEach(item => {
+                    if(item && item !== '-') {
+                        const option = document.createElement('option');
+                        option.value = item;
+                        option.textContent = item;
+                        selectElement.appendChild(option);
+                    }
+                });
+                selectElement.value = currentValue;
+            };
+
+            populateSelect(filterSalesSelect, salesSet, 'Semua Sales');
+            populateSelect(filterKodeInput, kodeSet, 'Semua Kode');
+            populateSelect(filterGolInput, golSet, 'Semua Gol');
+            populateSelect(bonusSalesSelect, salesSet, 'Pilih Sales');
+        }
+
+        function updateRawDataFromTable() {
+            const headerLine = headersFromMaster.join('\t');
+            const dataLines = fullData.map(row => row.cells.join('\t'));
+            const newRawData = [headerLine, ...dataLines].join('\n');
+            rawDataInput.value = newRawData;
+            showStatus("Data mentah disinkronkan dari tabel.", true, 1500);
+        }
+        
+        function renderTidyDataTable(dataToRender, headers) {
+            tidyDataTable.innerHTML = '';
+            if (dataToRender.length === 0) {
+                tidyDataTable.innerHTML = '<thead><tr><th class="tidy-header-cell text-center p-4">Tidak ada data untuk ditampilkan sesuai filter.</th></tr></thead>';
+                return;
+            }
+            const thead = tidyDataTable.createTHead();
+            const headerRow = thead.insertRow();
+            headers.forEach(headerText => {
+                const th = document.createElement('th');
+                th.textContent = headerText.toUpperCase();
+                th.className = 'tidy-header-cell';
+                headerRow.appendChild(th);
+            });
+            const tbody = tidyDataTable.createTBody();
+            dataToRender.forEach((rowObject) => {
+                const tr = tbody.insertRow();
+                tr.className = 'tidy-data-row';
+                tr.dataset.originalIndex = fullData.indexOf(rowObject);
+
+                rowObject.cells.forEach((cellText, colIndex) => {
+                    const td = tr.insertCell();
+                    td.textContent = cellText;
+                    td.className = 'tidy-table-cell';
+                    td.contentEditable = true;
+                    td.dataset.colIndex = colIndex;
+
+                    td.addEventListener('blur', (e) => {
+                        const newText = e.target.textContent;
+                        const originalRowIdx = parseInt(tr.dataset.originalIndex, 10);
+                        const colIdx = parseInt(td.dataset.colIndex, 10);
+
+                        if (!isNaN(originalRowIdx) && !isNaN(colIdx) && fullData[originalRowIdx]) {
+                            fullData[originalRowIdx].cells[colIdx] = newText;
+                            updateRawDataFromTable(); // Auto-sync on change
+                        }
+                    });
+                });
+            });
+        }
+        
         function runAllReports() {
             hideError();
             
+            if (!startDateFilter.value || !endDateFilter.value) {
+                return;
+            }
             const startDate = new Date(startDateFilter.value);
             startDate.setHours(0,0,0,0);
             const endDate = new Date(endDateFilter.value);
             endDate.setHours(23,59,59,999);
 
-            const filteredData = fullData.filter(row => row.date >= startDate && row.date <= endDate);
+            const filteredData = fullData.filter(row => {
+                return row.date && row.date >= startDate && row.date <= endDate;
+            });
+
             const userRole = localStorage.getItem('userRole');
 
             if (filteredData.length === 0) {
                 resultContainer.classList.add('hidden');
                 omsetReportContainer.classList.add('hidden');
                 bonusClaimContainer.classList.add('hidden');
+                exportCombinedContainer.classList.add('hidden');
                 bonusSalesSelect.innerHTML = `<option value="">-- Tidak ada data di periode ini --</option>`;
                 return;
             }
@@ -628,8 +1039,8 @@
             finalBonusData = calculateAllBonuses(aggregatedOmsetData, processed.salesList);
             
             const periodTitle = `Periode ${startDate.toLocaleDateString('id-ID')} s/d ${endDate.toLocaleDateString('id-ID')}`;
-            document.getElementById('report-title-1').textContent = `Laporan Penjualan - ${periodTitle}`;
-            document.getElementById('report-title-2').textContent = `Laporan Omset - ${periodTitle}`;
+            document.getElementById('report-title-1-pdf').textContent = `Laporan Penjualan - ${periodTitle}`;
+            document.getElementById('report-title-2-pdf').textContent = `Laporan Omset - ${periodTitle}`;
             document.getElementById('report-title-3').textContent = `Verifikasi Bonus - ${periodTitle}`;
             
             if (userRole === 'admin') {
@@ -637,23 +1048,86 @@
                 renderOmsetReport(aggregatedOmsetData, processed.salesList);
                 resultContainer.classList.remove('hidden');
                 omsetReportContainer.classList.remove('hidden');
-            } else {
+                exportCombinedContainer.classList.remove('hidden');
+            } else { // Guest
                  resultContainer.classList.add('hidden');
                  omsetReportContainer.classList.add('hidden');
+                 exportCombinedContainer.classList.add('hidden');
+                 if(isGuestVerified) {
+                    const verifiedSales = localStorage.getItem('verifiedSalesName');
+                    renderBonusClaimReport(verifiedSales);
+                    bonusClaimContainer.classList.remove('hidden');
+                 } else {
+                    bonusClaimContainer.classList.add('hidden');
+                 }
             }
 
             setupBonusVerification(processed.salesList);
         }
 
-        processBtn.addEventListener('click', () => processRawData(rawDataInput.value.trim()));
-        
         startDateFilter.addEventListener('change', runAllReports);
         endDateFilter.addEventListener('change', runAllReports);
         saveDataBtn.addEventListener('click', saveDataToFirestore);
         
+        applySmartFilterBtn.addEventListener('click', () => {
+            const salesColIndex = headersFromMaster.indexOf('pof');
+            const kodeColIndex = headersFromMaster.indexOf('kode');
+            const golColIndex = headersFromMaster.indexOf('gol');
+
+            let filteredView = fullData;
+
+            const selectedSales = filterSalesSelect.value;
+            if(selectedSales) {
+                filteredView = filteredView.filter(row => row.cells[salesColIndex]?.toUpperCase() === selectedSales);
+            }
+
+            const selectedKode = filterKodeInput.value;
+            if(selectedKode && kodeColIndex > -1) {
+                filteredView = filteredView.filter(row => row.cells[kodeColIndex]?.toUpperCase() === selectedKode);
+            }
+            
+            const selectedGol = filterGolInput.value;
+            if(selectedGol && golColIndex > -1) {
+                filteredView = filteredView.filter(row => row.cells[golColIndex]?.toUpperCase() === selectedGol);
+            }
+
+            const startDate = filterStartDate.value ? new Date(filterStartDate.value) : null;
+            if(startDate) startDate.setHours(0,0,0,0);
+            const endDate = filterEndDate.value ? new Date(filterEndDate.value) : null;
+            if(endDate) endDate.setHours(23,59,59,999);
+            
+            if(startDate || endDate) {
+                 filteredView = filteredView.filter(row => {
+                    const rowDate = row.date;
+                    if (startDate && endDate) return rowDate >= startDate && rowDate <= endDate;
+                    if (startDate) return rowDate >= startDate;
+                    if (endDate) return rowDate <= endDate;
+                    return true;
+                 });
+            }
+
+            filteredView.sort((a,b) => a.date - b.date);
+
+            renderTidyDataTable(filteredView, headersFromMaster);
+            showStatus('Filter diterapkan!', true, 1500);
+        });
+
+        resetRawDataBtn.addEventListener('click', () => {
+            processRawData(masterRawData);
+            filterSalesSelect.value = '';
+            filterStartDate.value = '';
+            filterEndDate.value = '';
+            filterKodeInput.value = '';
+            filterGolInput.value = '';
+            tidyDataTable.innerHTML = '';
+            showStatus('Filter dibersihkan.', true, 1500);
+        });
+        
         function setupAdminDateFilters() {
             if (fullData.length === 0) return;
-            const latestDate = new Date(Math.max.apply(null, fullData.map(row => row.date)));
+            const dates = fullData.map(row => row.date).filter(Boolean);
+            if (dates.length === 0) return;
+            const latestDate = new Date(Math.max.apply(null, dates));
             const firstDay = new Date(latestDate.getFullYear(), latestDate.getMonth(), 1);
             const lastDay = new Date(latestDate.getFullYear(), latestDate.getMonth() + 1, 0);
 
@@ -663,17 +1137,27 @@
 
         function parseData(text) {
             const rows = text.split('\n').filter(row => row.trim() !== '');
-            if (rows.length < 2) throw new Error("Data harus memiliki setidaknya satu baris header dan satu baris data.");
+            if (rows.length === 0) return { headers: [], data: [], dateIndex: -1 };
             const headers = rows[0].split('\t').map(h => h.trim().toLowerCase());
             const dateIndex = headers.indexOf('tgl');
-            if(dateIndex === -1) throw new Error("Kolom 'tgl' tidak ditemukan di header.");
-            const data = rows.slice(1).map(row => {
+            if(dateIndex === -1 && text) throw new Error("Kolom 'tgl' tidak ditemukan di header.");
+            
+            const data = rows.slice(1).map((row, i) => {
                 const cells = row.split('\t').map(c => c.trim());
-                if(cells.length < headers.length) return null; 
+                if(cells.length < headers.length) {
+                    console.warn(`Row ${i+2} has incorrect cell count. Skipping.`);
+                    return null;
+                }
                 const dateParts = cells[dateIndex].split('/');
-                if (dateParts.length !== 3) return null; 
+                if (dateParts.length !== 3) {
+                     console.warn(`Row ${i+2} has invalid date format. Skipping.`);
+                    return null;
+                }
                 const date = new Date(dateParts[2], dateParts[1] - 1, dateParts[0]);
-                if (isNaN(date.getTime())) return null; 
+                if (isNaN(date.getTime())) {
+                    console.warn(`Row ${i+2} has invalid date value. Skipping.`);
+                    return null;
+                }
                 return { cells, date };
             }).filter(Boolean); 
             return { headers, data, dateIndex };
@@ -702,35 +1186,44 @@
         function setupBonusVerification(salesList) {
             const userRole = localStorage.getItem('userRole');
 
-            if (salesList.length > 0) {
-                 bonusSalesSelect.innerHTML = salesList.map(s => `<option value="${s}">${s}</option>`).join('');
-            } else {
-                 bonusSalesSelect.innerHTML = `<option value="">-- Tidak ada sales --</option>`;
-            }
-            verificationCodeInput.value = '';
-            bonusClaimContainer.classList.add('hidden');
-
-            if (adminBonusChangeListener) {
-                bonusSalesSelect.removeEventListener('change', adminBonusChangeListener);
+            const currentSales = bonusSalesSelect.value;
+            bonusSalesSelect.innerHTML = `<option value="">-- Pilih Sales --</option>` + salesList.map(s => `<option value="${s}">${s}</option>`).join('');
+            if(salesList.includes(currentSales)) {
+                bonusSalesSelect.value = currentSales;
             }
 
             if (userRole === 'admin') {
-                verificationCodeWrapper.classList.add('hidden');
-                verifyBonusBtn.classList.add('hidden');
+                if (adminBonusChangeListener) {
+                   bonusSalesSelect.removeEventListener('change', adminBonusChangeListener);
+                }
 
                 adminBonusChangeListener = (e) => {
-                    renderBonusClaimReport(e.target.value);
-                    bonusClaimContainer.classList.remove('hidden');
+                    if (e.target.value) {
+                       renderBonusClaimReport(e.target.value);
+                       bonusClaimContainer.classList.remove('hidden');
+                    } else {
+                        bonusClaimContainer.classList.add('hidden');
+                    }
                 };
                 bonusSalesSelect.addEventListener('change', adminBonusChangeListener);
                 
-                if (salesList.length > 0) {
+                if (bonusSalesSelect.value && salesList.length > 0) {
                     renderBonusClaimReport(bonusSalesSelect.value);
                     bonusClaimContainer.classList.remove('hidden');
+                } else {
+                    bonusClaimContainer.classList.add('hidden');
                 }
-            } else { // Guest
-                verificationCodeWrapper.classList.remove('hidden');
-                verifyBonusBtn.classList.remove('hidden');
+
+            } else { // Guest logic
+                bonusSalesSelect.addEventListener('change', () => {
+                     if (isGuestVerified) {
+                        const verifiedSales = localStorage.getItem('verifiedSalesName');
+                        renderBonusClaimReport(verifiedSales); // Always render the verified sales' report
+                        bonusClaimContainer.classList.remove('hidden');
+                    } else {
+                        bonusClaimContainer.classList.add('hidden');
+                    }
+                });
             }
         }
 
@@ -769,6 +1262,7 @@
 
         function renderBonusClaimReport(sales) {
             bonusClaimReport.innerHTML = '';
+            if(!sales) return;
             const salesData = finalBonusData[sales];
             if (!salesData) return;
             const title = document.createElement('h3');
@@ -807,7 +1301,7 @@
             footerLabel.colSpan = "4";
             footerLabel.className = 'item-cell';
             const footerValue = footerRow.insertCell();
-            footerValue.textContent = formatCurrency(salesData.totalBonus);
+            footerValue.textContent = formatCurrency(finalBonusData[sales].totalBonus);
             footerValue.className = 'table-cell font-extrabold';
             bonusClaimReport.appendChild(table);
         }
@@ -875,14 +1369,14 @@
                 salesList.forEach(sales => {
                     const data = pivotData[product]?.[sales] || { qty: 0, amount: 0 };
                     row.insertCell().textContent = formatNumber(data.qty);
-                    row.insertCell().textContent = formatNumber(data.amount);
+                    row.insertCell().textContent = formatCurrency(data.amount);
                     row.cells[row.cells.length-1].classList.add('table-cell');
                     row.cells[row.cells.length-2].classList.add('table-cell');
                     rowTotalQty += data.qty; rowTotalAmount += data.amount;
                     grandTotal[sales].qty += data.qty; grandTotal[sales].amount += data.amount;
                 });
                 row.insertCell().textContent = formatNumber(rowTotalQty);
-                row.insertCell().textContent = formatNumber(rowTotalAmount);
+                row.insertCell().textContent = formatCurrency(rowTotalAmount);
                 row.cells[row.cells.length-1].classList.add('table-cell', 'font-semibold', 'bg-blue-50');
                 row.cells[row.cells.length-2].classList.add('table-cell', 'font-semibold', 'bg-blue-50');
             });
@@ -894,13 +1388,13 @@
             let finalQty = 0, finalAmount = 0;
             salesList.forEach(s => {
                 footerRow.insertCell().textContent = formatNumber(grandTotal[s].qty);
-                footerRow.insertCell().textContent = formatNumber(grandTotal[s].amount);
+                footerRow.insertCell().textContent = formatCurrency(grandTotal[s].amount);
                 footerRow.cells[footerRow.cells.length-1].classList.add('table-cell');
                 footerRow.cells[footerRow.cells.length-2].classList.add('table-cell');
                 finalQty += grandTotal[s].qty; finalAmount += grandTotal[s].amount;
             });
             footerRow.insertCell().textContent = formatNumber(finalQty);
-            footerRow.insertCell().textContent = formatNumber(finalAmount);
+            footerRow.insertCell().textContent = formatCurrency(finalAmount);
             footerRow.cells[footerRow.cells.length-1].classList.add('table-cell');
             footerRow.cells[footerRow.cells.length-2].classList.add('table-cell');
         }
@@ -941,14 +1435,14 @@
                 salesList.forEach(sales => {
                     const data = aggregatedData[productUpperCase]?.[sales] || { qty: 0, amount: 0 };
                     row.insertCell().textContent = formatNumber(data.qty);
-                    row.insertCell().textContent = formatNumber(data.amount);
+                    row.insertCell().textContent = formatCurrency(data.amount);
                     row.cells[row.cells.length-1].classList.add('table-cell');
                     row.cells[row.cells.length-2].classList.add('table-cell');
                     rowTotalQty += data.qty; rowTotalAmount += data.amount;
                     grandTotal[sales].qty += data.qty; grandTotal[sales].amount += data.amount;
                 });
                 row.insertCell().textContent = formatNumber(rowTotalQty);
-                row.insertCell().textContent = formatNumber(rowTotalAmount);
+                row.insertCell().textContent = formatCurrency(rowTotalAmount);
                 row.cells[row.cells.length-1].classList.add('table-cell', 'font-semibold', 'bg-blue-50');
                 row.cells[row.cells.length-2].classList.add('table-cell', 'font-semibold', 'bg-blue-50');
             });
@@ -960,17 +1454,298 @@
             let finalQty = 0, finalAmount = 0;
             salesList.forEach(s => {
                 footerRow.insertCell().textContent = formatNumber(grandTotal[s].qty);
-                footerRow.insertCell().textContent = formatNumber(grandTotal[s].amount);
+                footerRow.insertCell().textContent = formatCurrency(grandTotal[s].amount);
                 footerRow.cells[footerRow.cells.length-1].classList.add('table-cell');
                 footerRow.cells[footerRow.cells.length-2].classList.add('table-cell');
                 finalQty += grandTotal[s].qty; finalAmount += grandTotal[s].amount;
             });
             footerRow.insertCell().textContent = formatNumber(finalQty);
-            footerRow.insertCell().textContent = formatNumber(finalAmount);
+            footerRow.insertCell().textContent = formatCurrency(finalAmount);
             footerRow.cells[footerRow.cells.length-1].classList.add('table-cell');
             footerRow.cells[footerRow.cells.length-2].classList.add('table-cell');
         }
         
+        document.getElementById('export-sales-pdf').addEventListener('click', () => {
+             exportElementToPDF('sales-report-printable', 'laporan-penjualan.pdf');
+        });
+
+        document.getElementById('export-omset-pdf').addEventListener('click', () => {
+             exportElementToPDF('omset-report-printable', 'laporan-omset.pdf');
+        });
+
+        document.getElementById('export-bonus-pdf').addEventListener('click', () => {
+             exportElementToPDF('bonus-claim-report', 'laporan-bonus.pdf', 'portrait');
+        });
+
+        exportCombinedBtn.addEventListener('click', () => {
+            exportCombinedReports('laporan-gabungan.pdf');
+        });
+
+
+        async function exportCombinedReports(filename) {
+            const { jsPDF } = window.jspdf;
+            const salesReportEl = document.getElementById('sales-report-printable');
+            const omsetReportEl = document.getElementById('omset-report-printable');
+
+            if (!salesReportEl || !omsetReportEl) {
+                showError('Satu atau kedua laporan tidak ditemukan untuk digabungkan.');
+                return;
+            }
+            showStatus('Mempersiapkan PDF Gabungan...', false, 0);
+
+            // Capture first report (Sales)
+            const canvas1 = await window.html2canvas(prepareElementForExport(salesReportEl), { scale: 2, useCORS: true });
+            const imgData1 = canvas1.toDataURL('image/png');
+            
+            // Capture second report (Omset)
+            const canvas2 = await window.html2canvas(prepareElementForExport(omsetReportEl), { scale: 2, useCORS: true });
+            const imgData2 = canvas2.toDataURL('image/png');
+
+            showStatus('Membuat PDF...', false, 0);
+
+            const doc = new jsPDF('l', 'pt', 'a4');
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const pageHeight = doc.internal.pageSize.getHeight();
+            const margin = 20;
+
+            const addImageToPdf = (imgData, yPos) => {
+                const imgProps = doc.getImageProperties(imgData);
+                const imgWidth = imgProps.width;
+                const imgHeight = imgProps.height;
+                const ratio = imgWidth / imgHeight;
+                let finalWidth = pageWidth - (margin * 2);
+                let finalHeight = finalWidth / ratio;
+                return { height: finalHeight, y: yPos };
+            };
+
+            const salesImg = addImageToPdf(imgData1, margin);
+            const omsetImg = addImageToPdf(imgData2, 0); // Calculate yPos later
+            
+            const totalHeight = salesImg.height + omsetImg.height + margin;
+            const scaleFactor = (pageHeight - (margin * 2)) / totalHeight;
+            
+            const scaledSalesHeight = salesImg.height * scaleFactor;
+            const scaledOmsetHeight = omsetImg.height * scaleFactor;
+            const scaledSalesWidth = scaledSalesHeight * (canvas1.width/canvas1.height);
+            const scaledOmsetWidth = scaledOmsetHeight * (canvas2.width/canvas2.height);
+
+            const xPosSales = (pageWidth - scaledSalesWidth) / 2;
+            doc.addImage(imgData1, 'PNG', xPosSales, margin, scaledSalesWidth, scaledSalesHeight);
+            
+            const yPosOmset = margin + scaledSalesHeight + margin; 
+            const xPosOmset = (pageWidth - scaledOmsetWidth) / 2;
+            doc.addImage(imgData2, 'PNG', xPosOmset, yPosOmset, scaledOmsetWidth, scaledOmsetHeight);
+            
+            doc.save(filename);
+            showStatus('PDF Gabungan berhasil diekspor!', true);
+        }
+
+        function prepareElementForExport(element) {
+            const clonedElement = element.cloneNode(true);
+            clonedElement.style.maxHeight = 'none';
+            clonedElement.style.overflow = 'visible';
+            clonedElement.style.width = 'auto';
+            clonedElement.style.padding = '10px';
+            clonedElement.style.height = 'auto';
+            clonedElement.querySelectorAll('.sticky-col').forEach(el => el.classList.remove('sticky-col'));
+            clonedElement.querySelectorAll('td, th').forEach(cell => {
+                cell.innerText = cell.innerText.replace(/Rp\s?/g, '');
+            });
+            const table = clonedElement.querySelector('table');
+            if (table) {
+                table.style.width = 'auto';
+            }
+            document.body.appendChild(clonedElement);
+            clonedElement.style.position = 'absolute';
+            clonedElement.style.top = '-9999px';
+            clonedElement.style.left = '0px';
+            return clonedElement;
+        }
+
+        function exportElementToPDF(elementId, filename) {
+            const elementToExport = document.getElementById(elementId);
+            
+            if (!elementToExport) {
+                showError('Elemen untuk diekspor tidak ditemukan.');
+                return;
+            }
+            showStatus('Mempersiapkan PDF...', false, 0);
+
+            const clonedElement = prepareElementForExport(elementToExport);
+
+            window.html2canvas(clonedElement, {
+                scale: 2,
+                useCORS: true,
+                width: clonedElement.scrollWidth,
+                height: clonedElement.scrollHeight
+            }).then(canvas => {
+                document.body.removeChild(clonedElement);
+                
+                const imgData = canvas.toDataURL('image/png');
+                const imgWidth = canvas.width;
+                const imgHeight = canvas.height;
+                const orientation = imgWidth > imgHeight ? 'l' : 'p';
+                
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF(orientation, 'pt', 'a4');
+                const pdfWidth = pdf.internal.pageSize.getWidth();
+                const pdfHeight = pdf.internal.pageSize.getHeight();
+                
+                const ratio = imgWidth / imgHeight;
+                let finalImgWidth = pdfWidth - 40; // with margin
+                let finalImgHeight = finalImgWidth / ratio;
+                
+                if (finalImgHeight > pdfHeight - 40) {
+                    finalImgHeight = pdfHeight - 40;
+                    finalImgWidth = finalImgHeight * ratio;
+                }
+                
+                const xPos = (pdfWidth - finalImgWidth) / 2;
+                pdf.addImage(imgData, 'PNG', xPos, 20, finalImgWidth, finalImgHeight); // Position at top
+                pdf.save(filename);
+                showStatus('PDF berhasil diekspor!', true);
+
+            }).catch(err => {
+                showError('Gagal membuat PDF: ' + err.message);
+                console.error(err);
+                if (document.body.contains(clonedElement)) {
+                    document.body.removeChild(clonedElement);
+                }
+            });
+        }
+
+
+        // --- Confirmation Modal Logic ---
+        function showConfirmation(title, message, onConfirm) {
+            confirmModal.title.textContent = title;
+            confirmModal.message.textContent = message;
+            confirmModal.container.classList.remove('hidden');
+
+            const confirmHandler = () => {
+                onConfirm();
+                hideConfirmation();
+            };
+
+            const cancelHandler = () => {
+                hideConfirmation();
+            };
+            
+            confirmModal.yesBtn.onclick = confirmHandler;
+            confirmModal.noBtn.onclick = cancelHandler;
+        }
+
+        function hideConfirmation() {
+            confirmModal.container.classList.add('hidden');
+            confirmModal.yesBtn.onclick = null;
+            confirmModal.noBtn.onclick = null;
+        }
+
+
+        // Backup Manager
+        authControls.backupBtn.addEventListener('click', async () => {
+            backupModal.list.innerHTML = '<p class="text-center text-gray-500">Memuat backup...</p>';
+            backupModal.container.classList.remove('hidden');
+
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+            const backupCollection = collection(db, "artifacts", appId, "public", "data", "dataBackups");
+            const q = query(backupCollection, orderBy("createdAt", "desc"));
+
+            try {
+                const snapshot = await getDocs(q);
+                backupModal.list.innerHTML = '';
+                if(snapshot.empty) {
+                    backupModal.list.innerHTML = '<p class="text-center text-gray-500">Tidak ada backup yang ditemukan.</p>';
+                    return;
+                }
+                snapshot.forEach(docSnap => {
+                    const backup = docSnap.data();
+                    const el = document.createElement('div');
+                    el.className = 'bg-gray-50 p-3 rounded-lg flex items-center justify-between';
+                    const date = backup.createdAt?.toDate().toLocaleString('id-ID', { dateStyle: 'long', timeStyle: 'short' }) || 'Tanggal tidak valid';
+                    el.innerHTML = `
+                        <div>
+                            <p class="font-semibold">${date}</p>
+                            <p class="text-xs text-gray-500">${docSnap.id}</p>
+                        </div>
+                        <div class="flex gap-2">
+                             <button data-backup-id="${docSnap.id}" class="restore-btn bg-blue-500 text-white text-xs font-semibold py-1 px-3 rounded-lg hover:bg-blue-600">Pulihkan</button>
+                             <button data-backup-id="${docSnap.id}" class="delete-btn bg-red-500 text-white text-xs font-semibold py-1 px-3 rounded-lg hover:bg-red-600">Hapus</button>
+                        </div>
+                    `;
+                    backupModal.list.appendChild(el);
+                });
+            } catch(e) {
+                 backupModal.list.innerHTML = `<p class="text-center text-red-500">Gagal memuat backup: ${e.message}</p>`;
+                 console.error(e);
+            }
+        });
+
+        backupModal.closeBtn.addEventListener('click', () => {
+             backupModal.container.classList.add('hidden');
+        });
+
+        backupModal.list.addEventListener('click', async (e) => {
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+            
+            // Restore logic
+            if (e.target.classList.contains('restore-btn')) {
+                const backupId = e.target.dataset.backupId;
+                showConfirmation('Pulihkan Backup', `Anda yakin ingin memulihkan data dari backup ini? Data saat ini akan ditimpa.`, async () => {
+                    showStatus('Memulihkan...', false, 0);
+                    const backupDocRef = doc(db, "artifacts", appId, "public", "data", "dataBackups", backupId);
+                    try {
+                        const backupDoc = await getDoc(backupDocRef);
+                        if (backupDoc.exists()) {
+                            const restoredText = backupDoc.data().rawText;
+                            rawDataInput.value = restoredText; // Update textarea
+                            await saveDataToFirestore(); // Save restored data as the main data
+                            processRawData(restoredText); // Process the newly restored data
+                            showStatus('Data berhasil dipulihkan!', true);
+                            backupModal.container.classList.add('hidden');
+                        } else {
+                            showError('Dokumen backup tidak ditemukan.');
+                        }
+                    } catch (err) {
+                        showError(`Gagal memulihkan: ${err.message}`);
+                        console.error(err);
+                    }
+                });
+            }
+
+            // Delete logic
+            if (e.target.classList.contains('delete-btn')) {
+                const backupId = e.target.dataset.backupId;
+                 showConfirmation('Hapus Backup', 'Anda yakin ingin menghapus backup ini secara permanen?', async () => {
+                    showStatus('Menghapus...', false, 0);
+                    const backupDocRef = doc(db, "artifacts", appId, "public", "data", "dataBackups", backupId);
+                    try {
+                        await deleteDoc(backupDocRef);
+                        e.target.closest('.bg-gray-50').remove();
+                        showStatus('Backup berhasil dihapus.', true);
+                    } catch (err) {
+                        showError(`Gagal menghapus: ${err.message}`);
+                        console.error(err);
+                    }
+                });
+            }
+        });
+
+        manualBackupBtn.addEventListener('click', async () => {
+             showStatus("Membuat backup manual...", false, 0);
+             const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+             const backupCollection = collection(db, "artifacts", appId, "public", "data", "dataBackups");
+             try {
+                await addDoc(backupCollection, {
+                    rawText: rawDataInput.value,
+                    createdAt: serverTimestamp()
+                });
+                showStatus("Backup manual berhasil dibuat!", true);
+             } catch (e) {
+                showError("Gagal membuat backup manual.");
+                console.error(e);
+             }
+        });
+
         // Initialize the app on page load
         initializeFirebase();
     </script>
